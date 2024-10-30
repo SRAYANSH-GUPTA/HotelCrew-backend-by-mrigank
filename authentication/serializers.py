@@ -57,53 +57,35 @@ class ForgetPassSerializer(serializers.Serializer):
         
         return otpto
      
-class VerifyOTPSerializer(serializers.Serializer):
-    email= serializers.CharField()
+
+class resetPassSerializer(serializers.Serializer):
+    email = serializers.EmailField()
     otp = serializers.IntegerField()
+    new_password = serializers.CharField(min_length=8)
+    confirm_password = serializers.CharField(min_length=8)
 
     def validate(self, data):
         try:
-          user= EmailOTP.objects.get(email= data['email'])
-        except:
-          raise serializers.ValidationError({'error':'Invalid user'})
-        user= EmailOTP.objects.get(email= data['email'])
-        otph = user.otp
-        print(otph)
-        if otph != data['otp']:
-            raise serializers.ValidationError({'error':'Invalid OTP'})
-        if user.forgot:
-            self.forgot_us(data)
-        else:
-            self.create_us(data)
-        return {
-            "message" : "verified" }
-        
-    
-    def forgot_us(self , data):
-        EmailOTP.objects.filter(email=data['email']).delete()
-        return{
-            'message' : 'User verified successfully'
-        }
-    
-class ResetPassSerializer(serializers.Serializer):
-     email= serializers.EmailField()
-     new_password = serializers.CharField(min_length=8)
-     confirm_password = serializers.CharField(min_length=8)
+            otp_record = EmailOTP.objects.get(email=data['email'])
+        except EmailOTP.DoesNotExist:
+            raise serializers.ValidationError({'error': 'Invalid user or OTP not found'})
 
-     def validate(self, attrs):
-        if attrs['new_password'] is None:
-           raise serializers.ValidationError({"password": "Password should not be blank"})
-        if attrs['new_password'] != attrs['confirm_password']:
+        if otp_record.otp != data['otp']:
+            raise serializers.ValidationError({'error': 'Invalid OTP'})
+        if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError({"password": "Passwords do not match."})
         try:
-          user = User.objects.get(email=attrs['email'])
-        except:
+            user = User.objects.get(email=data['email'])
+        except User.DoesNotExist:
             raise serializers.ValidationError({"error": "User with this email does not exist."})
-        attrs['user']=user
-        return attrs
-        
-     def save(self):
-            user = self.validated_data['user']
-            user.set_password(self.validated_data['new_password'])
-            user.save()
-            return user 
+
+        data['user'] = user
+        return data
+
+    def save(self):
+        user = self.validated_data['user']
+        user.set_password(self.validated_data['new_password'])
+        user.save()
+        EmailOTP.objects.filter(email=self.validated_data['email']).delete()
+
+        return user

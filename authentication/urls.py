@@ -7,6 +7,5 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('forgetpassword/', ForgetPassword.as_view(), name='forgetpassword'),
-    path('verifyOTP/', VerifyOTPView.as_view(), name='verifyOTP'),
     path('resetpassword/', ResetPassView.as_view(), name='resetpassword'),
 ]
