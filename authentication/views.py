@@ -13,23 +13,21 @@ def home_view(request):
     return JsonResponse({"message": "Welcome to the HotelCrew!"})
 
 
-class RegisterView(APIView):
+class RegistrationOTPView(APIView):
     permission_classes = [AllowAny]
-
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        serializer = RegistrationOTPSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'status': 'success',
-                'message': 'User registered successfully',
-                'user': UserSerializer(user).data,
-                'tokens': {
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh),
-                }
-            }, status=status.HTTP_201_CREATED)
+            serializer.save()
+            return Response({'message': 'OTP sent successfully'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class RegisterWithOTPView(APIView):
+    def post(self, request):
+        serializer = RegisterWithOTPSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):

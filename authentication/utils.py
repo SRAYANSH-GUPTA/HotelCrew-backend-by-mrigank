@@ -19,4 +19,18 @@ Do not share your otp with anyone.
 
      return send_mail(subject, message, from_email , recipient_list)
 
+def otp_for_register(email,otp):
+     subject="OTP to register"
+     message =  f"""
+Your OTP for registration is:
+{otp}
+Do not share your otp with anyone.
+-team hotelcrew
+""" 
+  
+     from_email = settings.EMAIL_HOST_USER
+     recipient_list = [email]
+
+     return send_mail(subject, message, from_email , recipient_list)
+
 
