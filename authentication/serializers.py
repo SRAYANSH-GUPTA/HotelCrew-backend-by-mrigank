@@ -1,5 +1,5 @@
-from rest_framework import serializers,status
-from django.contrib.auth import get_user_model, authenticate
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from rest_framework.response import Response
@@ -7,6 +7,7 @@ from django.core.validators import MinLengthValidator
 from .utils import *
 import random
 from .models import EmailOTP, User
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -18,29 +19,34 @@ class UserSerializer(serializers.ModelSerializer):
 class RegistrationOTPSerializer(serializers.Serializer):
     user_name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    confirm_password = serializers.CharField(write_only=True, required=True)
 
-    def validate_email(self, email):
-        if User.objects.filter(email=email).exists():
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError("Passwords do not match.")
+        if User.objects.filter(email=data['email']).exists():
             raise serializers.ValidationError("User with this email already exists.")
-        return email
+        return data
 
     def save(self):
         email = self.validated_data['email']
         user_name = self.validated_data['user_name']
+        password = self.validated_data['password']
+   
         otp = random.randint(1000, 9999)
 
-        otp_for_register(email, otp)  
-        EmailOTP.objects.update_or_create(email=email, defaults={'otp': otp, 'user_name': user_name})
+        otp_for_register(email, otp)
+        EmailOTP.objects.update_or_create(email=email, defaults={'otp': otp, 'user_name': user_name, 'password': password})
+        
         return {'message': 'OTP sent successfully'}
 
 class RegisterWithOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.IntegerField()
-    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
-    confirm_password = serializers.CharField(write_only=True, required=True)
-
+    
     def validate(self, data):
-        # Check if OTP exists and is correct
+       
         try:
             otp_record = EmailOTP.objects.get(email=data['email'])
         except EmailOTP.DoesNotExist:
@@ -49,26 +55,25 @@ class RegisterWithOTPSerializer(serializers.Serializer):
         if otp_record.otp != data['otp']:
             raise serializers.ValidationError({'error': 'Invalid OTP'})
 
-        # Verify that password and confirm_password match
-        if data['password'] != data['confirm_password']:
-            raise serializers.ValidationError({"password": "Passwords do not match."})
+        if otp_record.is_otp_expired():
+            raise serializers.ValidationError({'error': 'OTP expired'})
+        
 
         return data
 
     def save(self, **kwargs):
-        validated_data = self.validated_data
-        email = validated_data['email']
-        password = validated_data['password']
-        
-        # Create the user
+        email = self.validated_data['email']
+        otp_record = EmailOTP.objects.get(email=email)
+        user_name = otp_record.user_name
+        password = otp_record.password
+
         user = User.objects.create_user(
             email=email,
-            user_name=EmailOTP.objects.get(email=email).user_name,
+            user_name=user_name,
             password=password
         )
 
-        # Delete OTP record after successful registration
-        EmailOTP.objects.filter(email=email).delete()
+        otp_record.delete()
 
         return user
 

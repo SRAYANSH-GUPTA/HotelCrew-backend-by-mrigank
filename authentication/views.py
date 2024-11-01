@@ -7,27 +7,30 @@ from django.contrib.auth import authenticate
 from .serializers import *
 from django.http import JsonResponse
 from rest_framework.generics import *
+from .models import User
 
-# this is just a placeholder view for the deault path
 def home_view(request):
     return JsonResponse({"message": "Welcome to the HotelCrew!"})
 
 
 class RegistrationOTPView(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = RegistrationOTPSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'OTP sent successfully'}, status=status.HTTP_200_OK)
+            data = serializer.save()
+            return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class RegisterWithOTPView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = RegisterWithOTPSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+            user = serializer.save()
+            return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class LoginView(APIView):
