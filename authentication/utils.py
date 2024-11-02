@@ -17,15 +17,22 @@ Do not share your otp with anyone.
      from_email = settings.EMAIL_HOST_USER
      recipient_list = [email]
 
-     return send_mail(subject, message, from_email , recipient_list)
+     return send_mail(subject,message,from_email,recipient_list)
 
-def otp_for_register(email,otp):
-     subject="OTP to register"
+def otp_for_register(user_name,email,otp):
+     subject="Your OTP Code for Verification"
      message =  f"""
-Your OTP for registration is:
-{otp}
-Do not share your otp with anyone.
--team hotelcrew
+Hi {user_name},
+Thank you for registering with us. To complete your verification, please use the following One-Time Password (OTP):
+
+OTP: {otp}
+
+
+Please do not share it with anyone for security reasons.
+
+Best regards,
+HotelCrew 
+
 """ 
   
      from_email = settings.EMAIL_HOST_USER
