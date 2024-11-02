@@ -17,7 +17,7 @@ Do not share your otp with anyone.
      from_email = settings.EMAIL_HOST_USER
      recipient_list = [email]
 
-     return send_mail(subject, message, from_email , recipient_list)
+     return send_mail(subject,message,from_email,recipient_list)
 
 def otp_for_register(email,otp):
      subject="OTP to register"

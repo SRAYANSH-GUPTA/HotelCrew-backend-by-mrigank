@@ -68,14 +68,22 @@ class ForgetPassword(APIView):
         return Response({'message' : ['OTP sent on email']}, status=status.HTTP_200_OK)
     
 
-class ResetPassView(UpdateAPIView):
+class OTPVerificationView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = resetPassSerializer(data=request.data)
-        
+        serializer = OTPVerificationSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()  
-            return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
-        
+            data = serializer.save()
+            return Response(data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            data = serializer.save()
+            return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

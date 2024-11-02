@@ -2,7 +2,7 @@ from django.db import models
 from authentication.models import User 
 
 class HotelDetails(models.Model):
-    user = models.ForeignKey(User,to_field='email', on_delete=models.CASCADE, related_name='hotel_details')
+    user = models.ForeignKey(User,to_field='email', on_delete=models.CASCADE, related_name='hotel_details',null=True,blank=True)
 
     # Basic Hotel Information
     hotel_name = models.CharField(max_length=255,unique=True)
