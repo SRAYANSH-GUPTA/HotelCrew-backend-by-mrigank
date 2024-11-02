@@ -36,7 +36,7 @@ class RegistrationOTPSerializer(serializers.Serializer):
    
         otp = random.randint(1000, 9999)
 
-        otp_for_register(email,otp)
+        otp_for_register(user_name,email,otp)
         EmailOTP.objects.update_or_create(email=email, defaults={'otp': otp, 'user_name': user_name, 'password': password})
         
         return {'message': 'OTP sent successfully'}
