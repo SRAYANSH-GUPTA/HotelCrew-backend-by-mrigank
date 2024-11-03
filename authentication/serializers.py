@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from django.core.validators import MinLengthValidator
 from .utils import *
 import random
-from .models import EmailOTP, User
+from .models import *
 from django.core.exceptions import ValidationError
 
 User = get_user_model()
@@ -14,7 +14,37 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id','user_name', 'email')
+        fields = ('id','user_name', 'email','role')
+
+class ManagerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Manager
+        fields = ['id', 'email', 'name', 'role', 'admin', 'hotel']
+
+    def create(self, validated_data):
+        manager = Manager(**validated_data)
+        manager.save()
+        return manager
+
+class ReceptionistSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Receptionist
+        fields = ['id', 'email', 'name', 'role', 'admin', 'hotel', 'manager']
+
+    def create(self, validated_data):
+        receptionist = Receptionist(**validated_data)
+        receptionist.save()
+        return receptionist
+
+class StaffSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Staff
+        fields = ['id', 'email', 'name', 'role','sub_role', 'admin', 'hotel', 'manager']
+
+    def create(self, validated_data):
+        staff = Staff(**validated_data)
+        staff.save()
+        return staff
 
 class RegistrationOTPSerializer(serializers.Serializer):
     user_name = serializers.CharField(max_length=150)
@@ -81,7 +111,7 @@ class RegisterWithOTPSerializer(serializers.Serializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-
+    
 
 class ForgetPassSerializer(serializers.Serializer):
      email = serializers.EmailField(write_only=True)
@@ -103,7 +133,6 @@ class ForgetPassSerializer(serializers.Serializer):
         
         return otpto
      
-
 class resetPassSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.IntegerField()
