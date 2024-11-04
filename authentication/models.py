@@ -23,7 +23,7 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, user_name, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        return self.create_user(email, user_name, password, **extra_fields)
+        return self.create_user(email, user_name,password, **extra_fields)
 
 class User(AbstractUser):
 
@@ -44,7 +44,7 @@ class User(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['user_name']
 
-   # objects = CustomUserManager()
+    objects = CustomUserManager()
 
     def __str__(self):
         return f"{self.email} ({self.role})"
@@ -68,7 +68,11 @@ class EmailOTP(models.Model):
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='manager_profile')
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='managed_hotels')
-    hotel = models.ForeignKey('HotelDetails', on_delete=models.CASCADE)
+    hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE)
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=255)
+    role = models.CharField(max_length=50, default='Manager')
+    password = models.CharField(max_length=50)
     
     def save(self, *args, **kwargs):
         if not self.pk:  # New instance
@@ -153,7 +157,7 @@ class Staff(models.Model):
         subject = "Staff Registration Successful"
         message = (
             f"Dear {self.name},\n\n"
-            f"Your account has been successfully created in the {self.department} department.\n"
+            f"Your account has been successfully created in the {self.role} department.\n"
             f"Your login credentials are:\n"
             f"Email: {self.email}\n"
             f"Password: {self.password}\n\n"
@@ -162,7 +166,7 @@ class Staff(models.Model):
         send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [self.email])
 
     def __str__(self):
-        return f"{self.name} ({self.department})"
+        return f"{self.name} ({self.role})"
     
 class Token(models.Model):
     key = models.CharField(max_length=40, primary_key=True)

@@ -43,31 +43,32 @@ class LoginView(APIView):
         # Authenticate the user
         user = authenticate(request, email=email, password=password)
         if user is not None:
-            # Generate a token for the authenticated user
-            token, created = Token.objects.get_or_create(user=user)
+            # Generate JWT tokens for the authenticated user
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
 
             # Determine user role by checking existence in respective models
             user_role = None
             user_data = {}
 
-            if User.objects.filter(user=user).exists():
+            if User.objects.filter(email=email).exists():
                 user_role = "Admin"
-                admin = User.objects.get(user=user)
+                admin = User.objects.get(email=email)
                 user_data = {
                     "full_name": admin.user_name,
                     "email": admin.email,
                 }
-            elif Manager.objects.filter(user=user).exists():
+            elif Manager.objects.filter(user__email=email).exists():
                 user_role = "Manager"
-                manager = Manager.objects.get(user=user)
+                manager = Manager.objects.get(user__email=email)
                 user_data = {
                     "full_name": manager.name,
                     "email": manager.email,
                     "hotel": manager.hotel,
                 }
-            elif Staff.objects.filter(user=user).exists():
+            elif Staff.objects.filter(user__email=email).exists():
                 user_role = "Staff"
-                staff = Staff.objects.get(user=user)
+                staff = Staff.objects.get(user__email=email)
                 user_data = {
                     "full_name": staff.name,
                     "email": staff.email,
@@ -78,7 +79,7 @@ class LoginView(APIView):
 
             # Response with token, role, and role-specific data
             return Response({
-                "token": token.key,
+                "token": access_token,
                 "role": user_role,
                 "user_data": user_data
             }, status=status.HTTP_200_OK)
