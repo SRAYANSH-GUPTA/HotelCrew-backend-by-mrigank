@@ -58,6 +58,8 @@ class EmailOTP(models.Model):
     user_name = models.CharField(max_length=150)  
     password = models.CharField(max_length=128)   
     forgot=models.BooleanField(default= False, blank= True)
+    otp_verified = models.BooleanField(default=False, blank=True)
+    
     def __str__(self):
         return f"{self.email} - OTP: {self.otp}"
 
