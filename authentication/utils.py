@@ -39,5 +39,3 @@ HotelCrew
      recipient_list = [email]
 
      return send_mail(subject, message, from_email , recipient_list)
-
-

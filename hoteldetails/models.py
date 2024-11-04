@@ -1,11 +1,11 @@
 from django.db import models
-from authentication.models import User 
+from django.conf import settings
 
 class HotelDetails(models.Model):
-    user = models.ForeignKey(User,to_field='email', on_delete=models.CASCADE, related_name='hotel_details',null=True,blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='hotel_details')
 
     # Basic Hotel Information
-    hotel_name = models.CharField(max_length=255,unique=True)
+    hotel_name = models.CharField(max_length=255)
     legal_business_name = models.CharField(max_length=255)
     year_established = models.IntegerField()
     license_registration_numbers = models.CharField(max_length=255)

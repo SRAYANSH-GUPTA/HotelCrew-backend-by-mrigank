@@ -1,4 +1,4 @@
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -7,7 +7,7 @@ from django.contrib.auth import authenticate
 from .serializers import *
 from django.http import JsonResponse
 from rest_framework.generics import *
-from .models import User
+from .models import *
 
 def home_view(request):
     return JsonResponse({"message": "Welcome to the HotelCrew!"})
@@ -35,30 +35,56 @@ class RegisterWithOTPView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
-
+    
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():
-            user = authenticate(
-                email=serializer.validated_data['email'],
-                password=serializer.validated_data['password']
-            )
-            if user:
-                refresh = RefreshToken.for_user(user)
-                return Response({
-                    'status': 'success',
-                    'message': 'Login successful',
-                    'user': UserSerializer(user).data,
-                    'tokens': {
-                        'access': str(refresh.access_token),
-                        'refresh': str(refresh),
-                    }
-                })
+        email =request.data.get("email")
+        password = request.data.get("password")
+
+        # Authenticate the user
+        user = authenticate(request, email=email, password=password)
+        if user is not None:
+            # Generate JWT tokens for the authenticated user
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
+            # Determine user role by checking existence in respective models
+            user_role = None
+            user_data = {}
+
+            if User.objects.filter(email=email).exists():
+                user_role = user.role
+                admin = User.objects.get(email=email)
+                user_data = {
+                    "full_name": admin.user_name,
+                    "email": admin.email,
+                }
+            elif Manager.objects.filter(email=email).exists():
+                user_role = "Manager"
+                manager = Manager.objects.get(email=email)
+                user_data = {
+                    "full_name": manager.name,
+                    "email": manager.email,
+                    "hotel": manager.hotel,
+                }
+            elif Staff.objects.filter(email=email).exists():
+                user_role = "Staff"
+                staff = Staff.objects.get(email=email)
+                user_data = {
+                    "full_name": staff.name,
+                    "email": staff.email,
+                    "role": staff.role,
+                    "sub_role": staff.sub_role,
+                    "hotel": staff.hotel,
+                }
+
+            # Response with token, role, and role-specific data
             return Response({
-                'status': 'error',
-                'message': 'Invalid credentials'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                "token": access_token,
+                "role": user_role,
+                "user_data": user_data
+            }, status=status.HTTP_200_OK)
+
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
     
 class ForgetPassword(APIView):
     permission_classes = [AllowAny]
@@ -87,3 +113,29 @@ class ResetPasswordView(APIView):
             data = serializer.save()
             return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class ManagerViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
+    queryset = Manager.objects.all()
+    serializer_class = ManagerSerializer
+
+    def perform_create(self, serializer):
+        serializer.save()  # Calls the `create()` method in the serializer
+        return Response({"status": "Manager created and email sent successfully."}) 
+
+class ReceptionistViewSet(viewsets.ModelViewSet):
+    queryset = Receptionist.objects.all()
+    serializer_class = ReceptionistSerializer
+
+    def perform_create(self, serializer):
+        serializer.save()
+        return Response({"status": "Receptionist created and email sent successfully."})
+
+class StaffViewSet(viewsets.ModelViewSet):
+    queryset = Staff.objects.all()
+    serializer_class = StaffSerializer
+
+    def perform_create(self, serializer):
+        serializer.save()
+        return Response({"status": "Staff created and email sent successfully."})
+
