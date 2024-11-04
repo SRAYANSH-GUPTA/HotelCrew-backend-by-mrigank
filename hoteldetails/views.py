@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 import pandas as pd
-from authentication.models import Staff, Manager
+from authentication.models import Staff, Manager,Receptionist
 
 
 class HotelDetailView(CreateAPIView):
@@ -43,12 +43,21 @@ class HotelDetailView(CreateAPIView):
                                 hotel=hotel,
                                 admin=request.user  # Assuming the logged-in user is the admin
                             )
+                            
+                        elif role.lower()=='receptionist':
+                            receptionist=Receptionist.objects.create(
+                                email=email,
+                                name=name,
+                                hotel=hotel,
+                                manager=manager,
+                                admin=request.user
+                            )
                         else:  # For staff
                             staff = Staff.objects.create(
                                 email=email,
                                 name=name,
                                 hotel=hotel,
-                                manager=manager,  # Reference the manager if necessary
+                                manager=manager,  
                                 admin=request.user  # Assuming the logged-in user is the admin
                             )
 

@@ -116,6 +116,15 @@ class Receptionist(models.Model):
         if not self.pk:  # if this is a new instance
             if not self.password:
                 self.password = get_random_string(10)
+                
+            user = User.objects.create_user(
+                email=self.email,
+                user_name=self.name,
+                password=self.password,  # Ensure a password is set here
+                role='Receptionist'  # Assign the role
+            )
+            self.admin=user
+            # self.hotel=hotel
             self.send_registration_email()
         
         super().save(*args, **kwargs)
@@ -149,6 +158,14 @@ class Staff(models.Model):
         if not self.pk:  # if this is a new instance
             if not self.password:
                 self.password = get_random_string(10)
+            user = User.objects.create_user(
+                email=self.email,
+                user_name=self.name,
+                password=self.password,  # Ensure a password is set here
+                role='Staff'  # Assign the role
+            )
+            self.admin = user  # Associate with the admin
+            # self.hotel = hotel
             self.send_registration_email()
         
         super().save(*args, **kwargs)

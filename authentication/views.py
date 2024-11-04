@@ -52,23 +52,23 @@ class LoginView(APIView):
             user_data = {}
 
             if User.objects.filter(email=email).exists():
-                user_role = "Admin"
+                user_role = user.role
                 admin = User.objects.get(email=email)
                 user_data = {
                     "full_name": admin.user_name,
                     "email": admin.email,
                 }
-            elif Manager.objects.filter(user__email=email).exists():
+            elif Manager.objects.filter(email=email).exists():
                 user_role = "Manager"
-                manager = Manager.objects.get(user__email=email)
+                manager = Manager.objects.get(email=email)
                 user_data = {
                     "full_name": manager.name,
                     "email": manager.email,
                     "hotel": manager.hotel,
                 }
-            elif Staff.objects.filter(user__email=email).exists():
+            elif Staff.objects.filter(email=email).exists():
                 user_role = "Staff"
-                staff = Staff.objects.get(user__email=email)
+                staff = Staff.objects.get(email=email)
                 user_data = {
                     "full_name": staff.name,
                     "email": staff.email,
