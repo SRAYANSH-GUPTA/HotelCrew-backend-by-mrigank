@@ -68,7 +68,7 @@ class EmailOTP(models.Model):
         return timezone.now() > expiration_time
     
 class Manager(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='manager_profile')
+    # user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='manager_profile')
     admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='managed_hotels')
     hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE)
     email = models.EmailField(unique=True)
@@ -76,18 +76,14 @@ class Manager(models.Model):
     role = models.CharField(max_length=50, default='Manager')
     password = models.CharField(max_length=50)
     
+   
     def save(self, *args, **kwargs):
-        if not self.pk:  # New instance
-            # Create user account
-            user = User.objects.create_user(
-                email=self.email,
-                user_name=self.name,
-                password=get_random_string(10),
-                role='Manager'
-            )
-            self.user = user
-            self.send_registration_email()
-        super().save(*args, **kwargs)
+            if not self.pk:  # if this is a new instance
+                if not self.password:
+                    self.password = get_random_string(10)
+                self.send_registration_email()
+        
+            super().save(*args, **kwargs)
 
         
     def send_registration_email(self):
@@ -115,21 +111,12 @@ class Receptionist(models.Model):
     password = models.CharField(max_length=50)
 
     def save(self, *args, **kwargs):
-        if not self.pk:  # if this is a new instance
-            if not self.password:
-                self.password = get_random_string(10)
-                
-            user = User.objects.create_user(
-                email=self.email,
-                user_name=self.name,
-                password=self.password,  # Ensure a password is set here
-                role='Receptionist'  # Assign the role
-            )
-            self.admin=user
-            # self.hotel=hotel
-            self.send_registration_email()
+            if not self.pk:  # if this is a new instance
+                if not self.password:
+                    self.password = get_random_string(10)
+                self.send_registration_email()
         
-        super().save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
     def send_registration_email(self):
         subject = "Receptionist Registration Successful"
@@ -157,20 +144,12 @@ class Staff(models.Model):
     password = models.CharField(max_length=50)
 
     def save(self, *args, **kwargs):
-        if not self.pk:  # if this is a new instance
-            if not self.password:
-                self.password = get_random_string(10)
-            user = User.objects.create_user(
-                email=self.email,
-                user_name=self.name,
-                password=self.password,  # Ensure a password is set here
-                role='Staff'  # Assign the role
-            )
-            self.admin = user  # Associate with the admin
-            # self.hotel = hotel
-            self.send_registration_email()
+            if not self.pk:  # if this is a new instance
+                if not self.password:
+                    self.password = get_random_string(10)
+                self.send_registration_email()
         
-        super().save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
     def send_registration_email(self):
         subject = "Staff Registration Successful"
