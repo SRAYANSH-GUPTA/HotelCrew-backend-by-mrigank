@@ -40,50 +40,67 @@ class LoginView(APIView):
         email =request.data.get("email")
         password = request.data.get("password")
 
-        # Authenticate the user
+        user_role = None
+        user_data = {}
+        user = None
+
+        # Authenticate as a User (Admin)
         user = authenticate(request, email=email, password=password)
         if user is not None:
-            # Generate JWT tokens for the authenticated user
+            user_role = user.role
+            user_data = {
+                "full_name": user.user_name,
+                "email": user.email,
+            }
+        
+        # Authenticate as a Manager
+        elif Manager.objects.filter(email=email, password=password).exists():
+            manager = Manager.objects.get(email=email)
+            user_role = "Manager"
+            user_data = {
+                "full_name": manager.name,
+                "email": manager.email,
+                "hotel": manager.hotel.id,  # Assuming you want hotel ID
+            }
+            # Creating a dummy user for token generation
+            user = User(email=manager.email, user_name=manager.name)
+
+        # Authenticate as a Receptionist
+        elif Receptionist.objects.filter(email=email, password=password).exists():
+            receptionist = Receptionist.objects.get(email=email)
+            user_role = "Receptionist"
+            user_data = {
+                "full_name": receptionist.name,
+                "email": receptionist.email,
+                "hotel": receptionist.hotel.id,
+            }
+            user = User(email=receptionist.email, user_name=receptionist.name)
+
+        # Authenticate as Staff
+        elif Staff.objects.filter(email=email, password=password).exists():
+            staff = Staff.objects.get(email=email)
+            user_role = "Staff"
+            user_data = {
+                "full_name": staff.name,
+                "email": staff.email,
+                "role": staff.role,
+                "sub_role": staff.sub_role,
+                "hotel": staff.hotel.id,
+            }
+            user = User(email=staff.email, user_name=staff.name)
+
+        # If a valid role was identified, create JWT tokens
+        if user_role:
+            # Generate JWT tokens (use a dummy User instance for token generation)
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
 
-            # Determine user role by checking existence in respective models
-            user_role = None
-            user_data = {}
-
-            if User.objects.filter(email=email).exists():
-                user_role = user.role
-                admin = User.objects.get(email=email)
-                user_data = {
-                    "full_name": admin.user_name,
-                    "email": admin.email,
-                }
-            elif Manager.objects.filter(email=email).exists():
-                user_role = "Manager"
-                manager = Manager.objects.get(email=email)
-                user_data = {
-                    "full_name": manager.name,
-                    "email": manager.email,
-                    "hotel": manager.hotel,
-                }
-            elif Staff.objects.filter(email=email).exists():
-                user_role = "Staff"
-                staff = Staff.objects.get(email=email)
-                user_data = {
-                    "full_name": staff.name,
-                    "email": staff.email,
-                    "role": staff.role,
-                    "sub_role": staff.sub_role,
-                    "hotel": staff.hotel,
-                }
-
-            # Response with token, role, and role-specific data
             return Response({
                 "token": access_token,
                 "role": user_role,
                 "user_data": user_data
             }, status=status.HTTP_200_OK)
-
+        
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
     
 class ForgetPassword(APIView):
