@@ -8,7 +8,8 @@ from .utils import *
 import random
 from .models import *
 from django.core.exceptions import ValidationError
-
+from datetime import timedelta
+from rest_framework import serializers
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
@@ -120,11 +121,23 @@ class ForgetPassSerializer(serializers.Serializer):
        user= User.objects.filter(email=data['email']).exists()
        if not user:
            raise serializers.ValidationError({"error":"User doesn't exist"})
-       otpto= self.sendotp(data)
-       EmailOTP.objects.update_or_create(
-            email= data['email'],
-            defaults={'otp':otpto,'forgot' :True}
-        )
+       otp_entry, created = EmailOTP.objects.get_or_create(email=data['email'])
+        
+       if not created and otp_entry.otp_created_at:
+            time_since_last_otp = timezone.now() - otp_entry.otp_created_at
+            if time_since_last_otp < timedelta(seconds=30):
+                raise serializers.ValidationError({"error": "Please wait 30 seconds before requesting a new OTP."})
+
+       if not created and otp_entry.is_otp_expired():
+            otp_entry.otp = None  
+
+       otpto = self.sendotp(data)
+        
+       otp_entry.otp = otpto
+       otp_entry.forgot = True
+       otp_entry.otp_created_at = timezone.now()
+       otp_entry.otp_verified = False
+       otp_entry.save()
        return data
         
      def sendotp(self, attrs):
@@ -161,7 +174,7 @@ class OTPVerificationSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    new_password = serializers.CharField(min_length=8, write_only=True)
+    new_password = serializers.CharField(min_length=8, write_only=True, required=True, validators=[validate_password])
     confirm_password = serializers.CharField(min_length=8, write_only=True)
 
     def validate(self, data):

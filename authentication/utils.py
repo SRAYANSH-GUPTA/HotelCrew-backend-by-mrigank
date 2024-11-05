@@ -54,7 +54,7 @@ def otp_for_reset(email, otp):
 
     return send_mail(subject, "", from_email, recipient_list, html_message=message)
 
-def otp_for_register(email, otp):
+def otp_for_register(user_name,email, otp):
     subject = "Your OTP for Registration"
     message = f"""
     <html>
