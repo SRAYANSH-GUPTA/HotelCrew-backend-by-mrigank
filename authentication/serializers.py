@@ -157,6 +157,7 @@ class OTPVerificationSerializer(serializers.Serializer):
         otp_record.save()
         return {'message': 'OTP verified successfully'}
 
+
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
     new_password = serializers.CharField(min_length=8, write_only=True)
