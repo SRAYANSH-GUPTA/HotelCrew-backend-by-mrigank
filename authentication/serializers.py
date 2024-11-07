@@ -3,7 +3,6 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from rest_framework.response import Response
-from django.core.validators import MinLengthValidator
 from .utils import *
 import random
 from .models import *
@@ -132,7 +131,7 @@ class RegistrationOTPSerializer(serializers.Serializer):
 
 class RegisterWithOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    otp = serializers.CharField()
+    otp = serializers.IntegerField()
     
     def validate(self, data):
        

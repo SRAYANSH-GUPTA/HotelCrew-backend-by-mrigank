@@ -39,6 +39,7 @@ class HotelDetailView(CreateAPIView):
                         user=User.objects.create(
                             email=email,
                             user_name=name,
+                            role=role,
                         )
                         # department = Department.objects.create(
                         #     name=sub_role,

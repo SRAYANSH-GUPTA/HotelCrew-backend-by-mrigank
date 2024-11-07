@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 from datetime import timedelta
 from django.utils.crypto import get_random_string
+from .utils import send_registration_email
 
 class CustomUserManager(BaseUserManager):
 
@@ -21,6 +22,7 @@ class CustomUserManager(BaseUserManager):
 
         user.set_password(password)
         user.save(using=self._db)
+        send_registration_email(email,password,role,user_name)
         return user
 
     def create_superuser(self, email, user_name, role, **extra_fields):
