@@ -17,7 +17,8 @@ class CustomUserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email,  user_name=user_name, role=role, **extra_fields)
 
-        if role != 'Admin' and not password:
+        if role != 'Admin' :
+           print("HI")
            password = get_random_string(12)
 
         user.set_password(password)
@@ -25,12 +26,11 @@ class CustomUserManager(BaseUserManager):
         send_registration_email(email,password,role,user_name)
         return user
 
-    def create_superuser(self, email, user_name, role, **extra_fields):
+    def create_superuser(self, email, user_name, role='Admin',password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
-        extra_fields.setdefault('role', 'Admin')
-        return self.create_user(email, user_name, role, **extra_fields)
+        return self.create_user(email, user_name, role=role,password=password, **extra_fields)
     
 class User(AbstractUser):
 

@@ -24,19 +24,20 @@ class HotelDetailView(CreateAPIView):
         if serializer.is_valid():
             hotel = serializer.save()
             
-            if hotel.staff_excel_sheet:
+            excel_file = request.FILES.get('staff_excel_sheet')
+            
+            if excel_file:
                 try:
-                    # Read the Excel file using pandas
-                    df = pd.read_excel(hotel.staff_excel_sheet.path)
+                    df = pd.read_excel(excel_file)
 
-                    # Iterate over the DataFrame rows and create Staff/Manager instances
+                    
                     for _, row in df.iterrows():
                         role = row.get('Role', 'Staff')  # Default to 'Staff' if not specified
                         email = row['Email']
                         name = row['Name']
-                        department = row['department']  # Default to 'General' if not specified
+                        department = row['department']  
 
-                        user=User.objects.create(
+                        user=User.objects.create_user(
                             email=email,
                             user_name=name,
                             role=role,
