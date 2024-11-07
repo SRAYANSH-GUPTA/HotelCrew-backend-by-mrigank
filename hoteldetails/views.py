@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 import pandas as pd
-from authentication.models import Staff, Manager,Receptionist
+from authentication.models import Staff, Manager,Receptionist,User
 
 
 class HotelDetailView(CreateAPIView):
@@ -34,31 +34,38 @@ class HotelDetailView(CreateAPIView):
                         role = row.get('Role', 'Staff')  # Default to 'Staff' if not specified
                         email = row['Email']
                         name = row['Name']
-                        
+                        department = row['department']  # Default to 'General' if not specified
+
+                        user=User.objects.create(
+                            email=email,
+                            user_name=name,
+                        )
+                        # department = Department.objects.create(
+                        #     name=sub_role,
+                        # )
                         # Check the role and create the appropriate user
                         if role.lower() == 'manager':
                             manager = Manager.objects.create(
-                                email=email,
-                                name=name,
+                                user=user,
+                                # email=user.email,
+                                # name=user.user_name,
                                 hotel=hotel,
-                                admin=request.user  # Assuming the logged-in user is the admin
                             )
                             
                         elif role.lower()=='receptionist':
                             receptionist=Receptionist.objects.create(
-                                email=email,
-                                name=name,
+                                user=user,
+                                # email=user.email,
+                                # name=user.user_name,
                                 hotel=hotel,
-                                manager=manager,
-                                admin=request.user
                             )
                         else:  # For staff
                             staff = Staff.objects.create(
-                                email=email,
-                                name=name,
+                                user=user,
+                                # email=user.email,
+                                # name=user.user_name,
                                 hotel=hotel,
-                                manager=manager,  
-                                admin=request.user  # Assuming the logged-in user is the admin
+                                department=department,
                             )
 
                 except Exception as e:

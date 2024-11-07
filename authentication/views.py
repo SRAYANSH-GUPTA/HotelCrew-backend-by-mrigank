@@ -1,4 +1,6 @@
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, permissions
+from rest_framework.decorators import action
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -119,17 +121,6 @@ class ForgetPassword(APIView):
         serializer.is_valid(raise_exception=True)
         return Response({'message' : ['OTP sent on email']}, status=status.HTTP_200_OK)
     
-
-class OTPVerificationView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = OTPVerificationSerializer(data=request.data)
-        if serializer.is_valid():
-            data = serializer.save()
-            return Response(data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -139,29 +130,88 @@ class ResetPasswordView(APIView):
             data = serializer.save()
             return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+"""
+class IsAdminUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.role == 'Admin'
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
     
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
+    def register(self, request):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class DepartmentViewSet(viewsets.ModelViewSet):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+
 class ManagerViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
     queryset = Manager.objects.all()
     serializer_class = ManagerSerializer
-
-    def perform_create(self, serializer):
-        serializer.save()  # Calls the `create()` method in the serializer
-        return Response({"status": "Manager created and email sent successfully."}) 
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
 
 class ReceptionistViewSet(viewsets.ModelViewSet):
     queryset = Receptionist.objects.all()
     serializer_class = ReceptionistSerializer
-
-    def perform_create(self, serializer):
-        serializer.save()
-        return Response({"status": "Receptionist created and email sent successfully."})
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
 
 class StaffViewSet(viewsets.ModelViewSet):
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
 
-    def perform_create(self, serializer):
-        serializer.save()
-        return Response({"status": "Staff created and email sent successfully."})
+class EmailOTPViewSet(viewsets.ModelViewSet):
 
+    queryset = EmailOTP.objects.all()
+    serializer_class = EmailOTPSerializer
+    permission_classes = [permissions.AllowAny]
+    
+    @action(detail=False, methods=['post'])
+    def generate_otp(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        otp = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        email_otp, created = EmailOTP.objects.update_or_create(
+            email=email,
+            defaults={'otp': otp, 'otp_verified': False}
+        )
+        
+        # Send OTP email
+        send_mail(
+            'Your OTP Code',
+            f'Your OTP code is: {otp}',
+            settings.DEFAULT_FROM_EMAIL,
+            [email],
+            fail_silently=False,
+        )
+        
+        return Response({'message': 'OTP sent successfully'})
+    
+    @action(detail=False, methods=['post'])
+    def verify_otp(self, request):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
+        
+        try:
+            email_otp = EmailOTP.objects.get(email=email)
+            if email_otp.is_otp_expired():
+                return Response({'error': 'OTP expired'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            if email_otp.otp == otp:
+                email_otp.otp_verified = True
+                email_otp.save()
+                return Response({'message': 'OTP verified successfully'})
+            return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+        except EmailOTP.DoesNotExist:
+            return Response({'error': 'No OTP found for this email'}, status=status.HTTP_404_NOT_FOUND)
+        """
