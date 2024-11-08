@@ -5,6 +5,10 @@ from .models import *
 
 User = get_user_model()
 
+admin.site.register(Staff)
+admin.site.register(Manager)
+admin.site.register(Receptionist)
+
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
     list_display = ('email', 'user_name', 'is_staff', 'is_active', 'created_at')
@@ -29,3 +33,5 @@ class EmailOTPModelAdmin(admin.ModelAdmin):
     list_display = ('email', 'otp', 'otp_created_at', 'forgot')
     search_fields = ('email',)
     ordering = ('email',)
+
+
