@@ -33,7 +33,7 @@ class HotelDetails(models.Model):
     department_names = models.TextField(help_text="Comma-separated list of department names")
 
    # Excel Sheet Upload for Staff Creation
-    staff_excel_sheet = models.FileField(upload_to='staff_sheets/', blank=True, null=True)
+
 
 
     def __str__(self):

@@ -102,4 +102,18 @@ def otp_for_register(user_name,email, otp):
 
     return send_mail(subject, "", from_email, recipient_list, html_message=message)
 
+def send_registration_email(email,password,role,user_name):
+        subject = "Registration Successful"
+        message =f"""
+                 Dear {user_name},\n\n
+                 Your account as a {role} has been successfully created.\n
+                 Your login credentials are:\n
+                 Email: {email}\n
+                 password: {password}\n\n
+                 Regards,\nHotelCrew Team
+        """
+        from_email = settings.EMAIL_HOST_USER
+        recipient_list = [email]
+
+        return send_mail(subject, "", from_email, recipient_list, html_message=message)
 

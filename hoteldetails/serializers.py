@@ -17,7 +17,7 @@ class HotelSerializer(serializers.ModelSerializer):
             'emergency_phone_number', 'email_address', 'total_number_of_rooms', 
             'number_of_floors', 'valet_parking_available', 'valet_parking_capacity', 
             'check_in_time', 'check_out_time', 'payment_methods', 'room_price', 
-            'number_of_departments', 'department_names','staff_excel_sheet', 'room_types'
+            'number_of_departments', 'department_names', 'room_types'
         ]
 
     def create(self, validated_data):
