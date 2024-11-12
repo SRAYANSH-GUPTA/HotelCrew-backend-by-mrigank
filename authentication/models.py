@@ -4,6 +4,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.utils.crypto import get_random_string
 from .utils import send_registration_email
+from hoteldetails.models import HotelDetails
 
 class CustomUserManager(BaseUserManager):
 
@@ -88,21 +89,21 @@ class EmailOTP(models.Model):
     
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='manager_profile')
-    hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE, related_name='managers')
+    hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='managers')
 
     def __str__(self):
         return f"{self.user.email} ({self.user.role})"
 
 class Receptionist(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='receptionist_profile')
-    hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE, related_name='receptionists')
+    hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='receptionists')
 
     def __str__(self):
         return f"{self.user.email} ({self.user.role})"    
 
 class Staff(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
-    hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE, related_name='staff')
+    hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='staff')
     department=models.CharField(max_length=40,default='housekeeping')
 
     def __str__(self):

@@ -20,7 +20,7 @@ class HotelDetailView(CreateAPIView):
                 'message': 'User must be authenticated.'
             }, status=status.HTTP_403_FORBIDDEN)
             
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data,context={'request': request})
         if serializer.is_valid():
             hotel = serializer.save()
             
