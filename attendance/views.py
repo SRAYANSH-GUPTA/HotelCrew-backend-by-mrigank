@@ -1,31 +1,39 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.generics import ListAPIView
 from rest_framework import status
 from django.utils import timezone
 from authentication.models import User
 from .models import Attendance
+from .serializers import UserWithAttendanceSerializer
 
-class MarkAttendanceView(APIView):
-    def post(self, request):
-        user_ids = request.data.get('user_ids', [])
-        if not user_ids:
-            return Response({'error': 'No user IDs provided.'}, status=status.HTTP_400_BAD_REQUEST)
+class NonAdminUserListView(ListAPIView):
+    queryset = User.objects.exclude(role='Admin')
+    serializer_class = UserWithAttendanceSerializer
 
-        date_today = timezone.now().date()
+class ChangeAttendanceView(APIView):
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            if user.role == 'Admin':
+                return Response({'error': 'Admins cannot have attendance records.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        for user_id in user_ids:
-            try:
-                user = User.objects.get(id=user_id)
-                if user.role != 'Admin': 
-                    attendance, created = Attendance.objects.get_or_create(
-                        user=user,
-                        date=date_today,
-                        defaults={'attendance': True}
-                    )
-                    if not created:
-                        attendance.attendance = True
-                        attendance.save()
-            except User.DoesNotExist:
-                return Response({'error': f'User with ID {user_id} does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+            date_today = timezone.now().date()
+            attendance, created = Attendance.objects.get_or_create(
+                user=user,
+                date=date_today
+            )
+            
+            attendance.attendance = not attendance.attendance
+            attendance.save()
+            
+            return Response(
+                {
+                    'message': f'Attendance for {user.user_name} on {date_today} set to {"Present" if attendance.attendance else "Absent"}.',
+                    'attendance': attendance.attendance
+                },
+                status=status.HTTP_200_OK
+            )
 
-        return Response({'message': 'Attendance marked as present for specified users.'}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'User does not exist.'}, status=status.HTTP_404_NOT_FOUND)

@@ -5,7 +5,7 @@ from django.utils import timezone
 # Create your models here.
 
 class Attendance(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='attendances')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='attendances')
     date = models.DateField(default=timezone.now)
     attendance = models.BooleanField(default=False)  # False = Absent, True = Present
 
