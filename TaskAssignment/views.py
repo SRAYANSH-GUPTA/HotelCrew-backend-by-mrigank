@@ -1,45 +1,52 @@
-from rest_framework import viewsets, permissions
-from rest_framework.decorators import action
+from hoteldetails.models import HotelDetails
+from rest_framework import permissions
+from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
-from django.db.models import Q
+from rest_framework import status
 from .models import Task
 from .serializers import TaskSerializer
 
-class TaskViewSet(viewsets.ModelViewSet):
+class IsManagerOrReceptionist(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role in ['Manager', 'Receptionist']
+
+
+class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
+    permission_classes = [IsManagerOrReceptionist]
+    queryset = Task.objects.all()
 
-    def get_queryset(self):
-        user = self.request.user
-        
-        # Admin can see all tasks
-        if user.role == 'Admin':
-            return Task.objects.all()
-        
-        # Manager can see tasks in their hotel
-        elif user.role == 'Manager':
-            return Task.objects.filter(hotel=user.manager_profile.hotel)
-        
-        # Staff can only see their assigned tasks
-        elif user.role == 'Staff':
-            return Task.objects.filter(assigned_to=user.staff_profile)
-        
-        return Task.objects.none()
-
-    def perform_create(self, serializer):
-        serializer.save(assigned_by=self.request.user)
-
-    @action(detail=True, methods=['post'])
-    def update_status(self, request, pk=None):
-        task = self.get_object()
-        new_status = request.data.get('status')
-        
-        # Only staff can update status and only to in_progress or completed
-        if request.user.role != 'Staff':
-            return Response({'error': 'Only staff can update task status'}, status=400)
-        
-        if new_status not in ['in_progress', 'completed']:
-            return Response({'error': 'Invalid status'}, status=400)
-        
-        task.status = new_status
-        task.save()
-        return Response({'status': 'updated'})
+    def post(self, request):
+         
+         if not request.user.is_authenticated:
+            return Response({
+                'status': 'error',
+                'message': 'User must be authenticated.'
+            }, status=status.HTTP_403_FORBIDDEN)
+            
+         user = request.user  
+         hotel = getattr(user, 'hotel', None)
+         hotel_id = user.hotel.id
+         if not hotel_id:
+             return Response({
+                 'status': 'error',
+                 'message': 'Hotel ID is required.'
+             }, status=status.HTTP_400_BAD_REQUEST)
+         
+         try:
+            hotel = HotelDetails.objects.get(id=hotel_id)
+         except HotelDetails.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Hotel not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+         
+         serializer = self.get_serializer(data=request.data, context={'request': request, 'hotel':hotel})
+         if serializer.is_valid():
+             task = serializer.save()
+             return Response({
+                    'status': 'success',
+                    'message': 'Task created successfully',
+                    'data': serializer.data
+             }, status=status.HTTP_201_CREATED)
+         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

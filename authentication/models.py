@@ -48,6 +48,7 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Admin')
+    is_active = models.BooleanField(default=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['user_name']
@@ -104,7 +105,8 @@ class Receptionist(models.Model):
 class Staff(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
     hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='staff')
-    department=models.CharField(max_length=40,default='housekeeping')
+    department=models.CharField(max_length=40)
+ #   is_avaliable = models.BooleanField(default=True, blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.email} ({self.user.role}) ({self.department})"

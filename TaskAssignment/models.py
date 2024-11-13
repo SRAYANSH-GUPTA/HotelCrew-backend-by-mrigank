@@ -9,13 +9,6 @@ class Task(models.Model):
         ('completed', 'Completed')
     )
 
-    DEPARTMENT_CHOICES = (
-        ('housekeeping', 'Housekeeping'),
-        ('kitchen', 'Kitchen'),
-        ('maintenance', 'Maintenance'),
-        ('frontdesk', 'Frontdesk')
-    )
-
     title = models.CharField(max_length=200)
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -25,12 +18,11 @@ class Task(models.Model):
     # Task assignment details
     assigned_to = models.ForeignKey('authentication.Staff', on_delete=models.CASCADE, related_name='assigned_tasks')
     assigned_by = models.ForeignKey('authentication.User', on_delete=models.CASCADE, related_name='created_tasks')
-    department = models.CharField(max_length=40, choices=DEPARTMENT_CHOICES)
+    department = models.CharField(max_length=50)
     hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE, related_name='hotel_tasks')
     
     # Task status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    completion_notes = models.TextField(blank=True, null=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     def clean(self):
@@ -39,8 +31,8 @@ class Task(models.Model):
             raise ValidationError("Task must be assigned to staff in the same department")
         
         # Validate that the assigner is either an Admin or Manager
-        if self.assigned_by.role not in ['Admin', 'Manager']:
-            raise ValidationError("Tasks can only be assigned by Admin or Manager")
+        if self.assigned_by.role not in ['Manager', 'Receptionist']:
+            raise ValidationError("Tasks can only be assigned by Manager or Receptionist")
 
     def save(self, *args, **kwargs):
         # When status is changed to completed, set completion time
@@ -54,7 +46,7 @@ class Task(models.Model):
 class TaskComment(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey('authentication.User', on_delete=models.CASCADE)
-    comment = models.TextField(null=True, blank=True)
+    comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
