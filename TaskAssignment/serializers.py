@@ -13,9 +13,8 @@ class TaskSerializer(serializers.ModelSerializer):
         # Get the user from the context instead of data
         user = self.context['request'].user
         manager = Manager.objects.get(user=user)
-        print(manager)
-        print(manager.hotel)
         hotel = manager.hotel
+        data['hotel'] = hotel
         # Add assigned_by to data
         data['assigned_by'] = user
        # Check if hotel is provided
@@ -31,6 +30,5 @@ class TaskSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        hotel = self.context.get('hotel')
-        task = Task.objects.create(hotel=hotel, **validated_data)
+        task = Task.objects.create( **validated_data)
         return task
