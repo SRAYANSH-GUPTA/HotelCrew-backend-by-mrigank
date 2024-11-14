@@ -31,8 +31,8 @@ class Task(models.Model):
             raise ValidationError("Task must be assigned to staff in the same department")
         
         # Validate that the assigner is either an Admin or Manager
-        if self.assigned_by.role not in ['Manager', 'Receptionist']:
-            raise ValidationError("Tasks can only be assigned by Manager or Receptionist")
+        if self.assigned_by.role not in ['Admin','Manager', 'Receptionist']:
+            raise ValidationError("Tasks can only be assigned by Admin, Manager or Receptionist")
 
     def save(self, *args, **kwargs):
         # When status is changed to completed, set completion time
