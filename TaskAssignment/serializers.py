@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Task
 from hoteldetails.models import HotelDetails
-from authentication.models import User, Manager, Staff
+from authentication.models import User, Manager, Staff, Receptionist
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
@@ -12,8 +12,16 @@ class TaskSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # Get the user from the context instead of data
         user = self.context['request'].user
-        manager = Manager.objects.get(user=user)
-        hotel = manager.hotel
+        if(user.role == 'Admin'):
+            hotel = HotelDetails.objects.get(user=user)
+        elif(user.role == 'Manager'):
+            manager = Manager.objects.get(user=user)
+            hotel = manager.hotel
+        elif(user.role == 'Receptionist'):
+            receptionist = Receptionist.objects.get(user=user)
+            hotel = receptionist.hotel
+        else:
+            raise serializers.ValidationError("Only Admin, Manager and Receptionist can assign tasks")
         data['hotel'] = hotel
         # Add assigned_by to data
         data['assigned_by'] = user
@@ -21,8 +29,8 @@ class TaskSerializer(serializers.ModelSerializer):
         if not hotel:
             raise serializers.ValidationError("Hotel information is required for task assignment.")
         # Validate assigner role
-        if data['assigned_by'].role not in [ 'Manager', 'Receptionist']:
-            raise serializers.ValidationError("Only Manager and Receptionist can assign tasks")
+        if data['assigned_by'].role not in [ 'Admin','Manager', 'Receptionist']:
+            raise serializers.ValidationError("Only Admin, Manager and Receptionist can assign tasks")
         
         staff = Staff.objects.get(department=data['department'], hotel=hotel)
         data['assigned_to'] = staff

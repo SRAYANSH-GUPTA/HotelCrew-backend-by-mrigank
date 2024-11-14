@@ -5,15 +5,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Task
 from .serializers import TaskSerializer
-
-class IsManagerOrReceptionist(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in ['Manager', 'Receptionist']
-
+from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 
 class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
-    permission_classes = [IsManagerOrReceptionist]
+    permission_classes = [IsAdminorManagerOrReceptionist]
     queryset = Task.objects.all()
 
     def post(self, request):
