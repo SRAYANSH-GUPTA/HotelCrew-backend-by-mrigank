@@ -24,24 +24,9 @@ class Taskassignment(CreateAPIView):
                 'message': 'User must be authenticated.'
             }, status=status.HTTP_403_FORBIDDEN)
             
-         user = request.user  
-         hotel = getattr(user, 'hotel', None)
-         hotel_id = user.hotel.id
-         if not hotel_id:
-             return Response({
-                 'status': 'error',
-                 'message': 'Hotel ID is required.'
-             }, status=status.HTTP_400_BAD_REQUEST)
+   
          
-         try:
-            hotel = HotelDetails.objects.get(id=hotel_id)
-         except HotelDetails.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'Hotel not found.'
-            }, status=status.HTTP_404_NOT_FOUND)
-         
-         serializer = self.get_serializer(data=request.data, context={'request': request, 'hotel':hotel})
+         serializer = self.get_serializer(data=request.data, context={'request': request})
          if serializer.is_valid():
              task = serializer.save()
              return Response({
