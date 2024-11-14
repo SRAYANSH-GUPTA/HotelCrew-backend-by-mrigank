@@ -8,7 +8,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
         model = Attendance
         fields = ['date', 'attendance']
         
-class UserWithAttendanceSerializer(serializers.ModelSerializer):
+class AttendanceListSerializer(serializers.ModelSerializer):
     current_attendance = serializers.SerializerMethodField()
 
     class Meta:
