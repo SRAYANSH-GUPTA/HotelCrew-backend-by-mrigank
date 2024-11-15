@@ -171,7 +171,7 @@ class AttendanceStatsView(APIView):
         return Response({
             'total_crew': total_crew,
             'total_present': total_present,
-            'days_with_records_this_month': total_days_month,
+            'days_with_records_this_month': total_working_days,
             'total_present_month': total_present_month,
         }, status=status.HTTP_200_OK)
 
