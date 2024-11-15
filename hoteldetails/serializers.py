@@ -22,8 +22,8 @@ class HotelSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         room_types_data = validated_data.pop('room_types', [])
-        user = self.context['request'].user 
-        hotel = HotelDetails.objects.create(user=user, **validated_data)
+        user=self.context['request'].user
+        hotel = HotelDetails.objects.create(user=user,**validated_data)
         for room_type_data in room_types_data:
             RoomType.objects.create(hotel=hotel, **room_type_data)
         return hotel

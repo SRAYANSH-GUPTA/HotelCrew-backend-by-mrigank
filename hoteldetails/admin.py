@@ -3,7 +3,7 @@ from .models import HotelDetails,RoomType
 
 
 class HotelDetailsAdmin(admin.ModelAdmin):
-    list_display = ('id', 'hotel_name', 'email_address')
+    list_display = ('id', 'user','hotel_name', 'email_address')
     search_fields = ('hotel_name', 'email_address')
     ordering = ('hotel_name',)
 

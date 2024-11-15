@@ -4,7 +4,7 @@ from .models import *
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('email', 'user_name', 'role', 'is_staff', 'is_active')
+    list_display = ('id','email', 'user_name', 'role', 'is_staff', 'is_active', 'date_joined', 'last_login')
     search_fields = ('email', 'user_name')
     ordering = ('email',)
     
@@ -24,19 +24,19 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(Manager)
 class ManagerAdmin(admin.ModelAdmin):
-    list_display = ('user', 'hotel')
+    list_display = ('id','user', 'hotel')
     search_fields = ('user__email', 'user__user_name', 'hotel__name')
     list_filter = ('hotel',)
 
 @admin.register(Receptionist)
 class ReceptionistAdmin(admin.ModelAdmin):
-    list_display = ('user', 'hotel')
+    list_display = ('id','user', 'hotel')
     search_fields = ('user__email', 'user__user_name', 'hotel__name')
     list_filter = ('hotel',)
 
 @admin.register(Staff)
 class StaffAdmin(admin.ModelAdmin):
-    list_display = ('user', 'hotel', 'department')
+    list_display = ('id','user', 'hotel', 'department')
     search_fields = ('user__email', 'user__user_name', 'hotel__name', 'department__name')
     list_filter = ('hotel', 'department')
 
