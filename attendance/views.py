@@ -6,6 +6,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import permissions
 from django.utils import timezone
+from datetime import date
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 from .models import Attendance
@@ -91,19 +92,30 @@ class CheckAttendanceView(APIView):
 
         user = request.user
         
-        today = timezone.now().date()
+        date_str = request.query_params.get('date')
+        
+        if date_str:
+            try:
+                date_t = date.fromisoformat(date_str)
+            except ValueError:
+                return Response(
+                    {'error': 'Invalid date format. Use YYYY-MM-DD.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            date_t = timezone.now().date()
 
         try:
-            attendance = Attendance.objects.get(user=user, date=today)
+            attendance = Attendance.objects.get(user=user, date=date_t)
             
             attendance_status = "Present" if attendance.attendance else "Absent"
             
-            return Response({'date': today,'user': user.user_name,'attendance':
+            return Response({'date': date_t,'user': user.user_name,'attendance':
             attendance_status,},
                 status=status.HTTP_200_OK
             )
         except Attendance.DoesNotExist:
-            return Response({'message': 'No attendance record found for today',},
+            return Response({'message': f'No attendance record found for {date_t}'},
                 status=status.HTTP_200_OK
             )
             
@@ -112,6 +124,7 @@ class AttendanceStatsView(APIView):
 
     def get(self, request):
         today = timezone.now().date()
+        current_month_start = today.replace(day=1)
         
         try:
           
@@ -143,8 +156,22 @@ class AttendanceStatsView(APIView):
         )
         total_present=present.count()
         total_crew=crew.count()
+        
+
+        month_attendance = Attendance.objects.filter(
+            user__in=non_admin_users,
+            date__gte=current_month_start,
+            date__lte=today
+        )
+
+        total_present_month = month_attendance.filter(attendance=True).count()
+
+        total_working_days = month_attendance.values('date').distinct().count()
+        
         return Response({
             'total_crew': total_crew,
-            'total_present': total_present
+            'total_present': total_present,
+            'days_with_records_this_month': total_days_month,
+            'total_present_month': total_present_month,
         }, status=status.HTTP_200_OK)
 
