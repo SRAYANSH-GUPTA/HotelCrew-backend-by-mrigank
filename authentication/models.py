@@ -19,7 +19,7 @@ class CustomUserManager(BaseUserManager):
         user = self.model(email=email,  user_name=user_name, role=role, **extra_fields)
 
         if role != 'Admin' :
-           print("HI")
+        #    print("HI")
            password = get_random_string(12)
 
         user.set_password(password)
