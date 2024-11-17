@@ -1,4 +1,5 @@
 from itertools import chain
+from collections import Counter
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
@@ -11,7 +12,7 @@ from rest_framework import permissions
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 
-from .serializers import StaffListSerializer,UserSerializer
+from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer
 
 # Create your views here.
 
@@ -43,8 +44,12 @@ class StaffListView(ListAPIView):
             (receptionist.user for receptionist in receptionists)
         ))
         
+        department_count = Counter(staff.department for staff in staffs)
+        total_departments = len(department_count)
+        staff_per_department = dict(department_count)
+        
         serializer = StaffListSerializer(non_admin_users, many=True)
-        return Response(serializer.data, status=200)
+        return Response({'status': 'success','total_departments': total_departments,'staff_per_department': staff_per_department,'staff_list': serializer.data}, status=200)
     
 
 class CreateCrewView(APIView):
@@ -184,3 +189,29 @@ class DeleteCrewView(APIView):
             'status': 'success',
             'message': 'User and associated data deleted successfully.'
         }, status=status.HTTP_204_NO_CONTENT)
+        
+        
+class UpdateHotelDetailsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        try:
+            hotel_details = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'No hotel is associated with the authenticated user.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = HotelUpdateSerializer(hotel_details, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'Hotel details updated successfully.',
+                'hotel': serializer.data
+            }, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+

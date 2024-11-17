@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from authentication.models import User
+from hoteldetails.models import HotelDetails
 
 from django.utils import timezone
 
@@ -29,3 +30,8 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'user_name', 'email', 'role', 'department']
+        
+class HotelUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HotelDetails
+        exclude = ['user']
