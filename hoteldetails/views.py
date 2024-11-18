@@ -36,11 +36,17 @@ class HotelDetailView(CreateAPIView):
                         email = row['Email']
                         name = row['Name']
                         department = row['department']  
+                        salary=row['salary']
+                        shift=row['shift']
+                        upi_id=row['upi_id']
+
 
                         user=User.objects.create_user(
                             email=email,
                             user_name=name,
                             role=role,
+                            salary=salary,
+                            upi_id=upi_id
                         )
                         # department = Department.objects.create(
                         #     name=sub_role,
@@ -52,6 +58,7 @@ class HotelDetailView(CreateAPIView):
                                 # email=user.email,
                                 # name=user.user_name,
                                 hotel=hotel,
+                                shift=shift,
                             )
                             
                         elif role.lower()=='receptionist':
@@ -60,6 +67,7 @@ class HotelDetailView(CreateAPIView):
                                 # email=user.email,
                                 # name=user.user_name,
                                 hotel=hotel,
+                                shift=shift,
                             )
                         else:  # For staff
                             staff = Staff.objects.create(
@@ -68,6 +76,7 @@ class HotelDetailView(CreateAPIView):
                                 # name=user.user_name,
                                 hotel=hotel,
                                 department=department,
+                                shift=shift,
                             )
 
                 except Exception as e:

@@ -21,7 +21,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'email', 'user_name', 'role', 'password', 'created_at', 'updated_at', 'is_active']
+        fields = ['id', 'email', 'user_name', 'role', 'password', 'created_at', 'updated_at', 'is_active', 'upi_id', 'salary', 'user_profile']
         read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {
             'user_name': {'required': True, 'min_length': 3},
@@ -66,7 +66,7 @@ class ManagerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Manager
-        fields = ['id', 'user', 'hotel']
+        fields = ['id', 'user', 'hotel','shift']
     
     def create(self, validated_data):
         user_data = validated_data.pop('user')
@@ -80,7 +80,7 @@ class ReceptionistSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Receptionist
-        fields = ['id', 'user', 'hotel']
+        fields = ['id', 'user', 'hotel', 'shift']
     
     def create(self, validated_data):
         user_data = validated_data.pop('user')
@@ -94,7 +94,7 @@ class StaffSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Staff
-        fields = ['id', 'user', 'hotel', 'department']
+        fields = ['id', 'user', 'hotel', 'department', 'shift','is_available']
     
     def create(self, validated_data):
         user_data = validated_data.pop('user')
