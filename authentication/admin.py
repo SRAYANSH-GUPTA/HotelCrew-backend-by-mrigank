@@ -1,32 +1,44 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.contrib.auth import get_user_model
 from .models import *
-
-User = get_user_model()
-
-admin.site.register(Staff)
-admin.site.register(Manager)
-admin.site.register(Receptionist)
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('email', 'user_name', 'is_staff', 'is_active', 'created_at')
+    list_display = ('id','email', 'user_name', 'role', 'is_staff', 'is_active', 'date_joined', 'last_login', 'upi_id', 'salary', 'user_profile')
     search_fields = ('email', 'user_name')
     ordering = ('email',)
-
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            'fields': ('email', 'user_name', 'password1', 'password2', 'is_staff', 'is_active'),
-        }),
-    )
-
+    
     fieldsets = (
-        (None, {'fields': ('email', 'user_name', 'password')}),
+        (None, {'fields': ('email', 'password')}),
+        ('Personal info', {'fields': ('user_name', 'role')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
+    
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'user_name', 'password1', 'password2', 'role'),
+        }),
+    )
+
+@admin.register(Manager)
+class ManagerAdmin(admin.ModelAdmin):
+    list_display = ('id','user', 'hotel')
+    search_fields = ('user__email', 'user__user_name', 'hotel__name')
+    list_filter = ('hotel',)
+
+@admin.register(Receptionist)
+class ReceptionistAdmin(admin.ModelAdmin):
+    list_display = ('id','user', 'hotel')
+    search_fields = ('user__email', 'user__user_name', 'hotel__name')
+    list_filter = ('hotel',)
+
+@admin.register(Staff)
+class StaffAdmin(admin.ModelAdmin):
+    list_display = ('id','user', 'hotel', 'department')
+    search_fields = ('user__email', 'user__user_name', 'hotel__name', 'department__name')
+    list_filter = ('hotel', 'department')
 
 @admin.register(EmailOTP)
 class EmailOTPModelAdmin(admin.ModelAdmin):

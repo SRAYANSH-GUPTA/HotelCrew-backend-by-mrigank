@@ -3,49 +3,106 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from rest_framework.response import Response
-from django.core.validators import MinLengthValidator
 from .utils import *
 import random
 from .models import *
 from django.core.exceptions import ValidationError
 from datetime import timedelta
+from django.utils import timezone
 from rest_framework import serializers
+from django.core.validators import MinLengthValidator, EmailValidator
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import get_user_model
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=False, validators=[validate_password], style={'input_type': 'password'})
+    email = serializers.EmailField(validators=[EmailValidator()])
+    
     class Meta:
         model = User
-        fields = ('id','user_name', 'email','role')
+        fields = ['id', 'email', 'user_name', 'role', 'password', 'created_at', 'updated_at', 'is_active', 'upi_id', 'salary', 'user_profile']
+        read_only_fields = ['created_at', 'updated_at']
+        extra_kwargs = {
+            'user_name': {'required': True, 'min_length': 3},
+            'role': {'required': True}
+        }
 
-class ManagerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Manager
-        fields = ['id', 'email', 'name', 'role', 'admin', 'hotel']
+    def validate_email(self, value):
+        """Validate email uniqueness case-insensitively."""
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("User with this email already exists.")
+        return value.lower()
 
     def create(self, validated_data):
-        manager = Manager(**validated_data)
-        manager.save()
+        role = validated_data.get('role', 'Admin')
+        if role == 'Admin' and 'password' not in validated_data:
+            raise serializers.ValidationError({"password": "Password is required for Admin users"})
+        
+        try:
+            user = User.objects.create_user(**validated_data)
+            return user
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+    
+    def update(self, instance, validated_data):
+        if 'password' in validated_data:
+            password = validated_data.pop('password')
+            instance.set_password(password)
+        if 'email' in validated_data:
+            # Check email uniqueness excluding current user
+            if User.objects.filter(email__iexact=validated_data['email']).exclude(id=instance.id).exists():
+                raise serializers.ValidationError({"email": "User with this email already exists."})
+        return super().update(instance, validated_data)
+
+# class EmailOTPSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = EmailOTP
+#         fields = ['email', 'user_name', 'otp', 'otp_verified', 'forgot']
+#         read_only_fields = ['otp', 'otp_verified']
+
+class ManagerSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    
+    class Meta:
+        model = Manager
+        fields = ['id', 'user', 'hotel','shift']
+    
+    def create(self, validated_data):
+        user_data = validated_data.pop('user')
+        user_data['role'] = 'Manager'
+        user = User.objects.create_user(**user_data)
+        manager = Manager.objects.create(user=user, **validated_data)
         return manager
 
 class ReceptionistSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    
     class Meta:
         model = Receptionist
-        fields = ['id', 'email', 'name', 'role', 'admin', 'hotel', 'manager']
-
+        fields = ['id', 'user', 'hotel', 'shift']
+    
     def create(self, validated_data):
-        receptionist = Receptionist(**validated_data)
-        receptionist.save()
+        user_data = validated_data.pop('user')
+        user_data['role'] = 'Receptionist'
+        user = User.objects.create_user(**user_data)
+        receptionist = Receptionist.objects.create(user=user, **validated_data)
         return receptionist
 
 class StaffSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    
     class Meta:
         model = Staff
-        fields = ['id', 'email', 'name', 'role','sub_role', 'admin', 'hotel', 'manager']
-
+        fields = ['id', 'user', 'hotel', 'department', 'shift','is_available']
+    
     def create(self, validated_data):
-        staff = Staff(**validated_data)
-        staff.save()
+        user_data = validated_data.pop('user')
+        user_data['role'] = 'Staff'
+        user = User.objects.create_user(**user_data)
+        staff = Staff.objects.create(user=user, **validated_data)
         return staff
+
 
 class RegistrationOTPSerializer(serializers.Serializer):
     user_name = serializers.CharField(max_length=150)
@@ -82,9 +139,10 @@ class RegisterWithOTPSerializer(serializers.Serializer):
             otp_record = EmailOTP.objects.get(email=data['email'])
         except EmailOTP.DoesNotExist:
             raise serializers.ValidationError({'error': 'OTP not found or invalid user'})
-
+       
         if otp_record.otp != data['otp']:
             raise serializers.ValidationError({'error': 'Invalid OTP'})
+        
 
         if otp_record.is_otp_expired():
             raise serializers.ValidationError({'error': 'OTP expired'})
@@ -101,18 +159,17 @@ class RegisterWithOTPSerializer(serializers.Serializer):
         user = User.objects.create_user(
             email=email,
             user_name=user_name,
-            password=password
+            password=password,
+            role='Admin'
         )
 
         otp_record.delete()
 
         return user
 
-
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    
 
 class ForgetPassSerializer(serializers.Serializer):
      email = serializers.EmailField(write_only=True)
@@ -146,7 +203,6 @@ class ForgetPassSerializer(serializers.Serializer):
         
         return otpto
      
-
 class OTPVerificationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.IntegerField()
@@ -170,7 +226,6 @@ class OTPVerificationSerializer(serializers.Serializer):
         otp_record.otp_verified = True 
         otp_record.save()
         return {'message': 'OTP verified successfully'}
-
 
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()

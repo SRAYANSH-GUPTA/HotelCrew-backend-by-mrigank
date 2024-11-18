@@ -1,0 +1,95 @@
+from hoteldetails.models import HotelDetails
+from rest_framework import permissions
+from rest_framework.generics import CreateAPIView,UpdateAPIView,DestroyAPIView,ListAPIView
+from rest_framework.views import APIView 
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Task
+from .serializers import TaskSerializer
+from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
+from rest_framework.permissions import AllowAny, IsAuthenticated
+
+class Taskassignment(CreateAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [IsAdminorManagerOrReceptionist]
+    queryset = Task.objects.all()
+
+    def post(self, request):
+         
+         if not request.user.is_authenticated:
+            return Response({
+                'status': 'error',
+                'message': 'User must be authenticated.'
+            }, status=status.HTTP_403_FORBIDDEN)
+            
+   
+         
+         serializer = self.get_serializer(data=request.data, context={'request': request})
+         if serializer.is_valid():
+             task = serializer.save()
+             return Response({
+                    'status': 'success',
+                    'message': 'Task created successfully',
+                    'data': serializer.data
+             }, status=status.HTTP_201_CREATED)
+         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StaffTaskListView(ListAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Task.objects.all()
+
+    def get_queryset(self):
+        user= self.request.user
+        user = user.id
+        return Task.objects.filter(assigned_to=user)
+    
+
+class AllTaskListView(ListAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [IsAdminorManagerOrReceptionist]
+    queryset = Task.objects.all()
+
+    def get_queryset(self):
+        return Task.objects.all()
+    
+
+class TaskUpdateView(UpdateAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [IsAdminorManagerOrReceptionist]
+    queryset = Task.objects.all()
+    lookup_field = 'pk'
+
+
+class TaskDeleteView(DestroyAPIView):
+    permission_classes = [IsAdminorManagerOrReceptionist]
+    queryset = Task.objects.all()
+    lookup_field = 'pk'
+
+
+class TaskStatusUpdateView(APIView):
+    permission_classes=[AllowAny]
+
+    def patch(self, request, pk=None):
+        """
+        Allows to update only the status field of a task.
+        """
+        try:
+            task = Task.objects.get(pk=pk)
+        except Task.DoesNotExist:
+            return Response({"error": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Only allow updating the status field
+        status_data = request.data.get("status")
+        if status_data is not None:
+            task.status = status_data
+            task.save()
+            return Response({
+                "message": "Task status updated successfully",
+                "status": task.status
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Status field is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    

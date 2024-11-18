@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 
 class HotelDetails(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='hotel_details')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL,unique=True, on_delete=models.CASCADE, related_name='hotel_details')
 
     # Basic Hotel Information
     hotel_name = models.CharField(max_length=255)
@@ -33,7 +33,7 @@ class HotelDetails(models.Model):
     department_names = models.TextField(help_text="Comma-separated list of department names")
 
    # Excel Sheet Upload for Staff Creation
-    staff_excel_sheet = models.FileField(upload_to='staff_sheets/', blank=True, null=True)
+
 
 
     def __str__(self):
@@ -44,6 +44,7 @@ class RoomType(models.Model):
     hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='room_types')
     room_type = models.CharField(max_length=50)
     count = models.PositiveIntegerField()
+    price = models.DecimalField(default=0,max_digits=10, decimal_places=2)
 
     def __str__(self):
         return f"{self.room_type} - {self.hotel.hotel_name}"

@@ -1,4 +1,6 @@
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, permissions
+from rest_framework.decorators import action
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
@@ -37,6 +39,7 @@ class RegisterWithOTPView(APIView):
                  "access_token": access_token,
                 "refresh_token": str(refresh),
                 "user_id": user.id,
+                # "user_profile":user.user_profile,
                 }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -51,54 +54,16 @@ class LoginView(APIView):
         user_data = {}
         user = None
 
-        # Authenticate as a User (Admin)
+        # Authenticate as a User
         user = authenticate(request, email=email, password=password)
         if user is not None:
             user_role = user.role
             user_data = {
                 "full_name": user.user_name,
                 "email": user.email,
-            }
-        
-        # Authenticate as a Manager
-        elif Manager.objects.filter(email=email, password=password).exists():
-            manager = Manager.objects.get(email=email)
-            user_role = "Manager"
-            user_data = {
-                "full_name": manager.name,
-                "email": manager.email,
-                "hotel": manager.hotel.id,  # Assuming you want hotel ID
-            }
-            # Creating a dummy user for token generation
-            user = User(email=manager.email, user_name=manager.name)
+                "role": user.role,
 
-        # Authenticate as a Receptionist
-        elif Receptionist.objects.filter(email=email, password=password).exists():
-            receptionist = Receptionist.objects.get(email=email)
-            user_role = "Receptionist"
-            user_data = {
-                "full_name": receptionist.name,
-                "email": receptionist.email,
-                "hotel": receptionist.hotel.id,
             }
-            user = User(email=receptionist.email, user_name=receptionist.name)
-
-        # Authenticate as Staff
-        elif Staff.objects.filter(email=email, password=password).exists():
-            staff = Staff.objects.get(email=email)
-            user_role = "Staff"
-            user_data = {
-                "full_name": staff.name,
-                "email": staff.email,
-                "role": staff.role,
-                "sub_role": staff.sub_role,
-                "hotel": staff.hotel.id,
-            }
-            user = User(email=staff.email, user_name=staff.name)
-
-        # If a valid role was identified, create JWT tokens
-        if user_role:
-            # Generate JWT tokens (use a dummy User instance for token generation)
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
 
@@ -119,7 +84,6 @@ class ForgetPassword(APIView):
         serializer.is_valid(raise_exception=True)
         return Response({'message' : ['OTP sent on email']}, status=status.HTTP_200_OK)
     
-
 class OTPVerificationView(APIView):
     permission_classes = [AllowAny]
 
@@ -129,7 +93,7 @@ class OTPVerificationView(APIView):
             data = serializer.save()
             return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -139,29 +103,4 @@ class ResetPasswordView(APIView):
             data = serializer.save()
             return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-class ManagerViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
-    queryset = Manager.objects.all()
-    serializer_class = ManagerSerializer
-
-    def perform_create(self, serializer):
-        serializer.save()  # Calls the `create()` method in the serializer
-        return Response({"status": "Manager created and email sent successfully."}) 
-
-class ReceptionistViewSet(viewsets.ModelViewSet):
-    queryset = Receptionist.objects.all()
-    serializer_class = ReceptionistSerializer
-
-    def perform_create(self, serializer):
-        serializer.save()
-        return Response({"status": "Receptionist created and email sent successfully."})
-
-class StaffViewSet(viewsets.ModelViewSet):
-    queryset = Staff.objects.all()
-    serializer_class = StaffSerializer
-
-    def perform_create(self, serializer):
-        serializer.save()
-        return Response({"status": "Staff created and email sent successfully."})
 
