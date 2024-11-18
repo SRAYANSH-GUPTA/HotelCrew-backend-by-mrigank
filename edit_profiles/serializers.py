@@ -35,3 +35,8 @@ class HotelUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = HotelDetails
         exclude = ['user']
+        
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['user_name']

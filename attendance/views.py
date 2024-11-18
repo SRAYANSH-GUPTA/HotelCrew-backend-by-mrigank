@@ -11,10 +11,7 @@ from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 from .models import Attendance
 from .serializers import AttendanceListSerializer
-
-class IsManagerOrAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in ['Manager', 'Admin']
+from .permissions import IsManagerOrAdmin
 
 class AttendanceListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -171,7 +168,7 @@ class AttendanceStatsView(APIView):
         return Response({
             'total_crew': total_crew,
             'total_present': total_present,
-            'days_with_records_this_month': total_working_days,
+            'total_working_days': total_working_days,
             'total_present_month': total_present_month,
         }, status=status.HTTP_200_OK)
 

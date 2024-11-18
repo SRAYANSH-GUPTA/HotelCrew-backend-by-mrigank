@@ -7,18 +7,14 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import permissions
 
+from attendance.permissions import IsManagerOrAdmin
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 
-from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer
+from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer
 
 # Create your views here.
-
-class IsManagerOrAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role in ['Manager', 'Admin']
 
 class StaffListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -215,3 +211,15 @@ class UpdateHotelDetailsView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
+class UpdateUserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        user = request.user
+        serializer = UserSerializer(user, data=request.data,partial=True)
+
+        if serializer.is_valid():
+            serializer.save() 
+            return Response({'status':'success','message':'Profile updated successfully.','user':serializer.data}, status=status.HTTP_200_OK)
+
+        return Response({'status':'error','message':'Profile update failed.','errors':serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
