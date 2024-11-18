@@ -4,7 +4,7 @@ from .models import *
 class RoomTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RoomType
-        fields = ['room_type', 'count']
+        fields = ['room_type', 'count', 'price']
 
 class HotelSerializer(serializers.ModelSerializer):
     room_types = RoomTypeSerializer(many=True, required=False)

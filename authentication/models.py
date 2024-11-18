@@ -49,6 +49,9 @@ class User(AbstractUser):
     updated_at = models.DateTimeField(auto_now=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='Admin')
     is_active = models.BooleanField(default=True)
+    upi_id = models.CharField(max_length=100, blank=True, null=True)
+    salary = models.IntegerField(default=0,blank=True,null=True)
+    user_profile = models.ImageField(upload_to='', default='14-cd-campogalliano-web-1565969801.jpg', blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['user_name']
@@ -71,6 +74,12 @@ class User(AbstractUser):
 #     def __str__(self):
 #         return self.name
 
+SHIFT_CHOICES = (
+    ('Morning','Morning'),
+    ('Evening','Evening'),
+    ('Night', 'Night')
+    )
+
 class EmailOTP(models.Model):
    # user = models.OneToOneField(User,on_delete=models.CASCADE,related_name='email_otp',null=True)
     email = models.EmailField(verbose_name='email address', max_length=255, unique=True )
@@ -91,23 +100,25 @@ class EmailOTP(models.Model):
 class Manager(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='manager_profile')
     hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='managers')
-
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, default='Morning')
     def __str__(self):
-        return f"{self.user.email} ({self.user.role})"
+        return f"{self.user.email} ({self.user.role}) ({self.shift})"
 
 class Receptionist(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='receptionist_profile')
     hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='receptionists')
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, default='Morning')
 
     def __str__(self):
-        return f"{self.user.email} ({self.user.role})"    
+        return f"{self.user.email} ({self.user.role}) ({self.shift})"    
 
 class Staff(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
     hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='staff')
     department=models.CharField(max_length=40)
- #   is_avaliable = models.BooleanField(default=True, blank=True, null=True)
+    shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, default='Morning')
+    is_avaliable = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"{self.user.email} ({self.user.role}) ({self.department})"
+        return f"{self.user.email} ({self.user.role}) ({self.department}) ({self.shift})"
     
