@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task
+from .models import Task, TaskComment, Announcement
 from hoteldetails.models import HotelDetails
 from authentication.models import User, Manager, Staff, Receptionist
 
@@ -40,3 +40,28 @@ class TaskSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         task = Task.objects.create( **validated_data)
         return task
+    
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    assigned_to = serializers.StringRelatedField(many=True, read_only=True)
+    assigned_by = serializers.StringRelatedField(read_only=True)
+    hotel = serializers.StringRelatedField(read_only=True)
+
+    class Meta:
+        model = Announcement
+        fields = [
+            'id', 'title', 'description', 'created_at', 'assigned_to',
+            'assigned_by', 'department', 'hotel', 'urgency'
+        ]
+
+class AnnouncementCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Announcement
+        fields = [
+            'title', 'description', 'department', 'urgency', 'hotel'
+        ]
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        validated_data['assigned_by'] = request.user
+        return super().create(validated_data)
