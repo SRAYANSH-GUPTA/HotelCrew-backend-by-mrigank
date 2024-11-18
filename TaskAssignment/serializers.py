@@ -58,10 +58,35 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Announcement
         fields = [
-            'title', 'description', 'department', 'urgency', 'hotel'
+            'title', 'description', 'department', 'urgency'
         ]
 
     def create(self, validated_data):
+        # Get the request context
         request = self.context.get('request')
+        
+        # Extract the department from the input
+        department = validated_data.get('department')
+
+        # Get staff members assigned to the provided department
+        if request.user.role == 'Admin':
+            hotel = HotelDetails.objects.get(user=request.user)
+        elif request.user.role == 'Manager':
+            manager = Manager.objects.get(user=request.user)
+            hotel = manager.hotel
+        if department == 'All':
+            assigned_staff = Staff.objects.filter(hotel=hotel)
+        elif department:
+            assigned_staff = Staff.objects.filter(department=department)
+
+        if not assigned_staff.exists():
+            raise serializers.ValidationError(
+                {"department": "No staff found in the specified department."}
+            )
+
+        # Add the 'assigned_to' and 'assigned_by' fields to the validated data
         validated_data['assigned_by'] = request.user
+        validated_data['hotel'] = hotel
+        validated_data['assigned_to'] = assigned_staff
+        # Call the parent `create` method to save the announcement
         return super().create(validated_data)

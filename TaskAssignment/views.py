@@ -8,6 +8,7 @@ from .models import Task,Announcement
 from .serializers import TaskSerializer, AnnouncementSerializer, AnnouncementCreateSerializer
 from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from authentication.models import Staff
 
 class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
@@ -105,10 +106,10 @@ class AnnouncementListCreateView(APIView):
         Admin and managers see all announcements, staff see only assigned ones.
         """
         user = request.user
-        if user.is_admin or user.is_manager:
+        if user.role == 'Admin'or user.role == 'Manager':
             announcements = Announcement.objects.all()
         else:
-            announcements = Announcement.objects.filter(assigned_to=user.staff)
+            announcements = Announcement.objects.filter(assigned_to= user)
         
         serializer = AnnouncementSerializer(announcements, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -118,7 +119,7 @@ class AnnouncementListCreateView(APIView):
         Create a new announcement.
         Only admin and managers can create announcements.
         """
-        if not (request.user.is_admin or request.user.is_manager):
+        if not (request.user.role == 'Admin' or request.user.role == 'Manager'):
             return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = AnnouncementCreateSerializer(data=request.data, context={'request': request})
@@ -127,10 +128,9 @@ class AnnouncementListCreateView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
 class AnnouncementDetailView(APIView):
     """
-    Handles retrieving, updating, and deleting a specific announcement.
+    Handles retrieving and deleting a specific announcement.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -165,7 +165,7 @@ class AnnouncementDetailView(APIView):
         if announcement is None:
             return Response({"error": "Announcement not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not (request.user.is_admin or request.user.is_manager):
+        if not (request.user.role == 'Admin' or request.user.role == 'Manager'):
             return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
         announcement.delete()

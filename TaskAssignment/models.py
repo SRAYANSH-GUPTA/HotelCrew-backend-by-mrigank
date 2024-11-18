@@ -64,17 +64,17 @@ class Announcement(models.Model):
     assigned_to = models.ManyToManyField('authentication.Staff', related_name='assigned_announcements', blank=True)
     assigned_by = models.ForeignKey('authentication.User', on_delete=models.CASCADE, related_name='created_announcements')
     department = models.CharField(max_length=50)
-    hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE, related_name='hotel_tasks')
+    hotel = models.ForeignKey('hoteldetails.HotelDetails', on_delete=models.CASCADE, related_name='hotel_announcements')
     urgency = models.CharField(max_length=20, choices=URGENCE_CHOICES, default='normal')
 
     def save(self, *args, **kwargs):
         # Automatically assign staff based on the department and hotel
         if self.department == 'All':
             # Assign all staff of the hotel
-            staff_to_assign = self.hotel.staff_set.all()
+            staff_to_assign = self.hotel.staff.all()
         else:
             # Assign staff of the specific department in the hotel
-            staff_to_assign = self.hotel.staff_set.filter(department=self.department)
+            staff_to_assign = self.hotel.staff.filter(department=self.department)
 
         super().save(*args, **kwargs)  # Save the announcement first
         self.assigned_to.set(staff_to_assign)  # Link the staff members
