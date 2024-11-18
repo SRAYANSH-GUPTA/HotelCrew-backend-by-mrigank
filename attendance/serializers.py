@@ -14,7 +14,7 @@ class AttendanceListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'user_name', 'role','department','current_attendance']
+        fields = ['id', 'user_name', 'email', 'role','department','current_attendance']
 
     def get_current_attendance(self, obj):
         today = timezone.now().date()
