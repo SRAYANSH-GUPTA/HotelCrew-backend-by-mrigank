@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'hoteldetails',
     'attendance',
     'TaskAssignment',
+    'edit_profiles',
 ]
 
 MIDDLEWARE = [

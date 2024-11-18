@@ -26,5 +26,6 @@ urlpatterns = [
     path('api/hoteldetails/', include('hoteldetails.urls')),
     path('api/attendance/',include('attendance.urls')),
     path('api/taskassignment/', include('TaskAssignment.urls')),
+    path('api/edit/',include('edit_profiles.urls')),
 
 ]
