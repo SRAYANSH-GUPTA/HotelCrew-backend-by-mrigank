@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import permissions
 from django.utils import timezone
-from datetime import date
+from datetime import date,timedelta
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 from .models import Attendance
@@ -22,7 +22,7 @@ class AttendanceListView(ListAPIView):
         
         try:
           
-            user_hotel = HotelDetails.objects.filter(user=request.user)
+            user_hotel = HotelDetails.objects.get(user=request.user)
             # print("hi")
         except HotelDetails.DoesNotExist:
             return Response(
@@ -31,9 +31,9 @@ class AttendanceListView(ListAPIView):
             )
         
         # non_admin_users = User.objects.exclude(role='Admin').filter(hotel=user_hotel)
-        managers=Manager.objects.filter(hotel__in=user_hotel)
-        staffs=Staff.objects.filter(hotel__in=user_hotel)
-        receptionists=Receptionist.objects.filter(hotel__in=user_hotel)
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
         
         non_admin_users = list(chain(
             (manager.user for manager in managers),
@@ -125,16 +125,16 @@ class AttendanceStatsView(APIView):
         
         try:
           
-            user_hotel = HotelDetails.objects.filter(user=request.user)
+            user_hotel = HotelDetails.objects.get(user=request.user)
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with you!.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        managers=Manager.objects.filter(hotel__in=user_hotel)
-        staffs=Staff.objects.filter(hotel__in=user_hotel)
-        receptionists=Receptionist.objects.filter(hotel__in=user_hotel)
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
         
         non_admin_users = list(chain(
             (manager.user for manager in managers),
@@ -171,4 +171,49 @@ class AttendanceStatsView(APIView):
             'total_working_days': total_working_days,
             'total_present_month': total_present_month,
         }, status=status.HTTP_200_OK)
+
+class AttendanceWeekStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        today = timezone.now().date()
+        past_7_days = [today - timedelta(days=i) for i in range(7)]
+        past_7_days.reverse()
+
+        try:
+            user_hotel = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {'error': 'No hotel is associated with the authenticated user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        managers = Manager.objects.filter(hotel=user_hotel)
+        staffs = Staff.objects.filter(hotel=user_hotel)
+        receptionists = Receptionist.objects.filter(hotel=user_hotel)
+
+        non_admin_users = list(chain(
+            (manager.user for manager in managers),
+            (staff.user for staff in staffs),
+            (receptionist.user for receptionist in receptionists)
+        ))
+
+        dates = []
+        total_crew_present = []
+        total_staff_absent = []
+
+        for day in past_7_days:
+            present = Attendance.objects.filter(user__in=non_admin_users, date=day, attendance=True).count()
+            crew = Attendance.objects.filter(user__in=non_admin_users, date=day).count()
+            
+            dates.append(day)
+            total_crew_present.append(present)
+            total_staff_absent.append(crew - present)
+
+        return Response({
+            'dates': dates,
+            'total_crew_present': total_crew_present,
+            'total_staff_absent': total_staff_absent,
+        }, status=status.HTTP_200_OK)
+
 
