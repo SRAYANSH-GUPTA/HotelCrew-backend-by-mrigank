@@ -22,7 +22,7 @@ class AttendanceListView(ListAPIView):
         
         try:
           
-            user_hotel = HotelDetails.objects.filter(user=request.user)
+            user_hotel = HotelDetails.objects.get(user=request.user)
             # print("hi")
         except HotelDetails.DoesNotExist:
             return Response(
@@ -31,9 +31,9 @@ class AttendanceListView(ListAPIView):
             )
         
         # non_admin_users = User.objects.exclude(role='Admin').filter(hotel=user_hotel)
-        managers=Manager.objects.filter(hotel__in=user_hotel)
-        staffs=Staff.objects.filter(hotel__in=user_hotel)
-        receptionists=Receptionist.objects.filter(hotel__in=user_hotel)
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
         
         non_admin_users = list(chain(
             (manager.user for manager in managers),
@@ -125,16 +125,16 @@ class AttendanceStatsView(APIView):
         
         try:
           
-            user_hotel = HotelDetails.objects.filter(user=request.user)
+            user_hotel = HotelDetails.objects.get(user=request.user)
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with you!.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        managers=Manager.objects.filter(hotel__in=user_hotel)
-        staffs=Staff.objects.filter(hotel__in=user_hotel)
-        receptionists=Receptionist.objects.filter(hotel__in=user_hotel)
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
         
         non_admin_users = list(chain(
             (manager.user for manager in managers),
