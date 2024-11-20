@@ -1,11 +1,16 @@
 from rest_framework.generics import CreateAPIView
 from .models import *
 from .serializers import *
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny,IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 import pandas as pd
 from authentication.models import Staff, Manager,Receptionist,User
+from rest_framework.views import APIView
+from django.utils.timezone import now, timedelta
+from django.db.models import Sum, Count
+from datetime import timedelta
+
 
 
 class HotelDetailView(CreateAPIView):
@@ -91,3 +96,176 @@ class HotelDetailView(CreateAPIView):
                 'hotel': serializer.data,
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+class CheckinCustomerView(APIView):
+    
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        
+        try:
+            hotel = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        data = request.data
+        room_type = data.get('room_type')
+        # check_in = data.get('check_in_time')
+        check_out = data.get('check_out_time')
+
+        if not room_type or not check_out:
+            return Response({
+                'status': 'error',
+                'message': 'Room type, check-in time, and check-out time are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            check_in_time = timezone.now()
+            check_out_time = timezone.make_aware(timezone.datetime.fromisoformat(check_out))
+
+
+            if check_in_time >= check_out_time:
+                return Response({
+                    'status': 'error',
+                    'message': 'Check-out time must be after check-in time.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            # customers_to_release = Customer.objects.filter(
+            #     Q(room_released=False) & Q(check_out_time__lte=timezone.now())
+            # )
+            
+            # # Release rooms for these customers
+            # for customer in customers_to_release:
+            #     customer.save()
+
+
+            room = RoomType.objects.get(room_type=room_type)
+            
+
+            if room.count <= 0:
+                return Response({
+                    'status': 'error',
+                    'message': f"No {room_type} rooms available."
+                }, status=status.HTTP_404_NOT_FOUND)
+                
+            stay_duration = (check_out_time - check_in_time).days+1
+            
+            print(stay_duration)
+            
+            room.count -= 1
+            room.save()
+
+            customer = Customer.objects.create(
+                hotel=hotel,
+                name=data.get('name'),
+                phone_number=data.get('phone_number'),
+                email=data.get('email'),
+                check_in_time=check_in_time,
+                check_out_time=check_out_time,
+                room_no=room.count+1,
+                room=room,
+                price=room.price*stay_duration
+            )
+
+
+            serializer = CustomerSerializer(customer)
+            return Response({
+                'status': 'success',
+                'message': f"Room booked successfully!",
+                'data': serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        except RoomType.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': f"Room type '{room_type}' does not exist."
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': f"An error occurred: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+
+            
+            
+class CheckoutCustomerView(APIView):
+    
+    def post(self, request, customer_id):
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        current_time = timezone.now()
+
+        check_in_time = customer.check_in_time
+        original_check_out_time = customer.check_out_time or current_time
+
+        if current_time > original_check_out_time:
+            stay_duration = (current_time.date() - check_in_time.date()).days + 1 
+        else:
+            stay_duration = (original_check_out_time.date() - check_in_time.date()).days + 1
+
+        # Recalculate price
+        customer.price = customer.room.price * stay_duration
+
+        customer.checkout_time = current_time
+
+        customer.room.count += 1
+        customer.room.save()
+        customer.save()
+
+        return Response({
+            "message": "Customer checked out successfully",
+            "stay_duration_days": stay_duration,
+            "final_price": customer.price
+        }, status=status.HTTP_200_OK)
+        
+        
+class RoomStatsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        try:
+            hotel = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
+
+        today = now().date()
+        dates = [(today - timedelta(days=i)) for i in range(7)]
+        dates.reverse()  
+
+        checkins = []
+        checkouts = []
+        revenues = []
+
+        for date in dates:
+
+            daily_checkins = Customer.objects.filter(
+                hotel=hotel,
+                check_in_time__date=date
+            ).count()
+            checkins.append(daily_checkins)
+
+            daily_checkouts = Customer.objects.filter(
+                hotel=hotel,
+                check_out_time__date=date
+            ).count()
+            checkouts.append(daily_checkouts)
+
+            daily_revenue = Customer.objects.filter(
+                hotel=hotel,
+                check_out_time__date=date
+            ).aggregate(total_revenue=Sum('price'))['total_revenue'] or 0
+            revenues.append(daily_revenue)
+
+        return Response({
+            "dates": [date.strftime("%Y-%m-%d") for date in dates],
+            "daily_checkins": checkins,
+            "daily_checkouts": checkouts,
+            "daily_revenues": revenues
+        }, status=status.HTTP_200_OK)

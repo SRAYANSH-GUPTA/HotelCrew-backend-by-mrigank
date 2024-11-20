@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import HotelDetails,RoomType
+from .models import HotelDetails,RoomType,Customer
 
 
 class HotelDetailsAdmin(admin.ModelAdmin):
@@ -9,3 +9,4 @@ class HotelDetailsAdmin(admin.ModelAdmin):
 
 admin.site.register(HotelDetails, HotelDetailsAdmin)
 admin.site.register(RoomType)
+admin.site.register(Customer)

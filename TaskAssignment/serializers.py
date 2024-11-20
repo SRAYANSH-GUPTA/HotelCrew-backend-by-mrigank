@@ -4,9 +4,13 @@ from hoteldetails.models import HotelDetails
 from authentication.models import User, Manager, Staff, Receptionist
 
 class TaskSerializer(serializers.ModelSerializer):
+    
+    assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)  
+    assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)  
+    
     class Meta:
         model = Task
-        fields =[ 'title', 'description', 'created_at', 'updated_at', 'deadline','department', 'status', 'completed_at']
+        fields =[ 'title', 'description', 'created_at', 'updated_at', 'deadline','department', 'status', 'completed_at','assigned_by','assigned_to']
         read_only_fields = ('created_at', 'updated_at', 'completed_at')
 
     def validate(self, data):
@@ -38,8 +42,11 @@ class TaskSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        task = Task.objects.create( **validated_data)
-        return task
+        validated_data['assigned_by'] = self.context['request'].user
+        validated_data['assigned_to'] = validated_data.pop('assigned_to', None)
+
+        return super().create(validated_data)
+
     
 
 class AnnouncementSerializer(serializers.ModelSerializer):

@@ -23,16 +23,16 @@ class StaffListView(ListAPIView):
         
         try:
           
-            user_hotel = HotelDetails.objects.filter(user=request.user)
+            user_hotel = HotelDetails.objects.get(user=request.user)
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with you!.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        managers=Manager.objects.filter(hotel__in=user_hotel)
-        staffs=Staff.objects.filter(hotel__in=user_hotel)
-        receptionists=Receptionist.objects.filter(hotel__in=user_hotel)
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
         
         non_admin_users = list(chain(
             (manager.user for manager in managers),
@@ -66,6 +66,10 @@ class CreateCrewView(APIView):
         role = data.get('role', 'Staff').capitalize()
         email, user_name = data.get('email'), data.get('user_name')
         department = data.get('department')
+        salary = data.get('salary')
+        upi_id = data.get('upi_id')
+        shift = data.get('shift')
+        
 
         if not email:
             return Response({'status': 'error', 'message': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -76,14 +80,14 @@ class CreateCrewView(APIView):
 
 
         try:
-            user = User.objects.create_user(email=email, user_name=user_name, role=role)
-
+            user = User.objects.create_user(email=email, user_name=user_name, role=role, upi_id=upi_id, salary=salary)
+            
             if role.lower() == 'manager':
-                Manager.objects.create(user=user, hotel=user_hotel)
+                Manager.objects.create(user=user, hotel=user_hotel,shift=shift)
             elif role.lower() == 'receptionist':
-                Receptionist.objects.create(user=user, hotel=user_hotel)
+                Receptionist.objects.create(user=user, hotel=user_hotel,shift=shift)
             else:
-                Staff.objects.create(user=user, hotel=user_hotel, department=department)
+                Staff.objects.create(user=user, hotel=user_hotel, department=department,shift=shift)
 
         except Exception as e:
             return Response({'status': 'error', 'message': f"Error creating user: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
@@ -113,6 +117,9 @@ class UpdateCrewView(APIView):
         new_email = data.get('email', user.email)
         user_name = data.get('user_name', user.user_name)
         department = data.get('department')
+        salary = data.get('salary', user.salary)
+        upi_id = data.get('upi_id', user.upi_id)
+        shift = data.get('shift', None)
 
         if new_email != user.email:
             try:
@@ -140,13 +147,15 @@ class UpdateCrewView(APIView):
                 Staff.objects.filter(user=user).delete()
 
             if new_role == 'Manager':
-                Manager.objects.create(user=user, hotel=user_hotel)
+                Manager.objects.create(user=user, hotel=user_hotel,shift=shift)
             elif new_role == 'Receptionist':
-                Receptionist.objects.create(user=user, hotel=user_hotel)
+                Receptionist.objects.create(user=user, hotel=user_hotel,shift=shift)
             elif new_role == 'Staff':
-                Staff.objects.create(user=user, hotel=user_hotel, department=department)
+                Staff.objects.create(user=user, hotel=user_hotel, department=department,shift=shift)
 
         user.user_name = user_name
+        user.salary = salary
+        user.upi_id = upi_id
         user.role = new_role
 
         try:
@@ -186,7 +195,25 @@ class DeleteCrewView(APIView):
             'message': 'User and associated data deleted successfully.'
         }, status=status.HTTP_204_NO_CONTENT)
         
-        
+class GetHotelDetailsView(APIView):
+    permission_classes = [IsManagerOrAdmin]
+
+    def get(self, request):
+        try:
+            hotel_details = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'No hotel is associated with the authenticated user.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = HotelUpdateSerializer(hotel_details)
+        return Response({
+            'status': 'success',
+            'message': 'Hotel details retrieved successfully.',
+            'hotel_details': serializer.data
+        }, status=status.HTTP_200_OK)
+
 class UpdateHotelDetailsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -223,3 +250,34 @@ class UpdateUserProfileView(APIView):
             return Response({'status':'success','message':'Profile updated successfully.','user':serializer.data}, status=status.HTTP_200_OK)
 
         return Response({'status':'error','message':'Profile update failed.','errors':serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    
+class ScheduleListView(ListAPIView):
+     permission_classes = [IsManagerOrAdmin]
+
+     def get(self, request):
+        
+        try:
+          
+            user_hotel = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {'error': 'No hotel is associated with you!.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
+        
+        non_admin_users = list(chain(
+            (manager.user for manager in managers),
+            (staff.user for staff in staffs),
+            (receptionist.user for receptionist in receptionists)
+        ))
+        
+        # department_count = Counter(staff.department for staff in staffs)
+        # total_departments = len(department_count)
+        # staff_per_department = dict(department_count)
+        
+        serializer = StaffListSerializer(non_admin_users, many=True)
+        return Response({'status': 'success','schedule_list': serializer.data}, status=200)

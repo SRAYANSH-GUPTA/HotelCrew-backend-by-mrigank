@@ -8,10 +8,11 @@ from django.utils import timezone
 class StaffListSerializer(serializers.ModelSerializer):
     
     department = serializers.SerializerMethodField()
+    shift= serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'user_name','email', 'role','department']
+        fields = ['id', 'user_name','email', 'role','department','salary','upi_id','shift']
 
     def get_department(self, obj):
         if obj.role == 'Staff':
@@ -21,15 +22,26 @@ class StaffListSerializer(serializers.ModelSerializer):
                 return None
         return None
     
+    def get_shift(self, obj):
+        if obj.role == 'Staff':
+            return obj.staff_profile.shift
+        elif obj.role== 'Manager':
+            return obj.manager_profile.shift
+        else:
+            return obj.receptionist_profile.shift
+    
 class UserSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(required=True)
     email = serializers.EmailField(required=True)
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES, required=True)
-    department = serializers.CharField(required=False, allow_blank=True)
+    department = serializers.CharField(required=False)
+    upi_id = serializers.CharField(required=False)
+    salary = serializers.IntegerField(required=False)
+    shift = serializers.ChoiceField(choices=['Morning', 'Evening', 'Night'], required=False)
 
     class Meta:
         model = User
-        fields = ['id', 'user_name', 'email', 'role', 'department']
+        fields = ['id', 'user_name', 'email', 'role', 'department','salary','upi_id','shift']
         
 class HotelUpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,4 +51,4 @@ class HotelUpdateSerializer(serializers.ModelSerializer):
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['user_name']
+        fields = ['user_name','user_profile']

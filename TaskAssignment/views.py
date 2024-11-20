@@ -31,7 +31,9 @@ class Taskassignment(CreateAPIView):
              return Response({
                     'status': 'success',
                     'message': 'Task created successfully',
-                    'data': serializer.data
+                    # 'assigned_by': task.assigned_by,
+                    # 'assigned_to': task.assigned_to,
+                    'data': serializer.data,
              }, status=status.HTTP_201_CREATED)
          return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
