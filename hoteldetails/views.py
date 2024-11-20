@@ -2,6 +2,7 @@ from rest_framework.generics import CreateAPIView
 from .models import *
 from .serializers import *
 from rest_framework.permissions import AllowAny,IsAuthenticated
+from attendance.permissions import IsNonStaff
 from rest_framework.response import Response
 from rest_framework import status
 import pandas as pd
@@ -100,7 +101,7 @@ class HotelDetailView(CreateAPIView):
     
 class CheckinCustomerView(APIView):
     
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsNonStaff]
     
     def post(self, request):
         
@@ -192,6 +193,7 @@ class CheckinCustomerView(APIView):
             
             
 class CheckoutCustomerView(APIView):
+    permission_classes = [IsNonStaff]
     
     def post(self, request, customer_id):
         try:
@@ -226,7 +228,7 @@ class CheckoutCustomerView(APIView):
         
         
 class RoomStatsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsNonStaff]
 
     def get(self, request):
 

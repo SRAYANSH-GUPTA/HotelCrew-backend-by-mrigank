@@ -12,7 +12,7 @@ from attendance.permissions import IsManagerOrAdmin
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 
-from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer
+from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer
 
 # Create your views here.
 
@@ -279,5 +279,54 @@ class ScheduleListView(ListAPIView):
         # total_departments = len(department_count)
         # staff_per_department = dict(department_count)
         
-        serializer = StaffListSerializer(non_admin_users, many=True)
+        serializer = ScheduleListSerializer(non_admin_users, many=True)
         return Response({'status': 'success','schedule_list': serializer.data}, status=200)
+    
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from authentication.models import Manager, Staff, Receptionist
+from hoteldetails.models import HotelDetails
+
+class ChangeShiftView(APIView):
+    permission_classes = [IsManagerOrAdmin]
+
+    def put(self, request, user_id):
+        shift = request.data.get('shift')
+
+        if not shift:
+            return Response(
+                {"error": "shift is required in the request body."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user_hotel = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {"error": "You are not associated with a hotel."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_instance = None
+        if Manager.objects.filter(user_id=user_id, hotel=user_hotel).exists():
+            user_instance = Manager.objects.get(user_id=user_id, hotel=user_hotel)
+        elif Staff.objects.filter(user_id=user_id, hotel=user_hotel).exists():
+            user_instance = Staff.objects.get(user_id=user_id, hotel=user_hotel)
+        elif Receptionist.objects.filter(user_id=user_id, hotel=user_hotel).exists():
+            user_instance = Receptionist.objects.get(user_id=user_id, hotel=user_hotel)
+
+        if not user_instance:
+            return Response(
+                {"error": "User does not belong to this hotel or does not exist."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        user_instance.shift = shift
+        user_instance.save()
+
+        return Response(
+            {"message": "Shift updated successfully.", "user_id": user_id, "new_shift": shift},
+            status=status.HTTP_200_OK
+        )

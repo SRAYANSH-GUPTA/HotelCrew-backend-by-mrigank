@@ -52,3 +52,28 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['user_name','user_profile']
+        
+class ScheduleListSerializer(serializers.ModelSerializer):
+    
+    department = serializers.SerializerMethodField()
+    shift= serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'user_name','department','shift']
+
+    def get_department(self, obj):
+        if obj.role == 'Staff':
+            try:
+                return obj.staff_profile.department
+            except Staff.DoesNotExist:
+                return None
+        return obj.role
+    
+    def get_shift(self, obj):
+        if obj.role == 'Staff':
+            return obj.staff_profile.shift
+        elif obj.role== 'Manager':
+            return obj.manager_profile.shift
+        else:
+            return obj.receptionist_profile.shift
