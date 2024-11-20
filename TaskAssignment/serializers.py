@@ -5,8 +5,8 @@ from authentication.models import User, Manager, Staff, Receptionist
 
 class TaskSerializer(serializers.ModelSerializer):
     
-    assigned_by = serializers.PrimaryKeyRelatedField(read_only=True)  
-    assigned_to = serializers.PrimaryKeyRelatedField(read_only=True)  
+    assigned_to = serializers.StringRelatedField(read_only=True)
+    assigned_by = serializers.StringRelatedField(read_only=True)  
     
     class Meta:
         model = Task
