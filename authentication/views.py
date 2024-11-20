@@ -10,6 +10,7 @@ from .serializers import *
 from django.http import JsonResponse
 from rest_framework.generics import *
 from .models import *
+from Notification.views import register_device_token
 
 def home_view(request):
     return JsonResponse({"message": "Welcome to the HotelCrew!"})
@@ -49,6 +50,7 @@ class LoginView(APIView):
     def post(self, request):
         email =request.data.get("email")
         password = request.data.get("password")
+        device_token = request.data.get("device_token")
 
         user_role = None
         user_data = {}
@@ -56,6 +58,8 @@ class LoginView(APIView):
 
         # Authenticate as a User
         user = authenticate(request, email=email, password=password)
+        register_device_token(user, device_token)
+
         if user is not None:
             user_role = user.role
             user_data = {

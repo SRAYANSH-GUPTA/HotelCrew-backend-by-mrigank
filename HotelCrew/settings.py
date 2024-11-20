@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 from datetime import timedelta
 import os
 import dj_database_url
+import firebase_admin
+from firebase_admin import credentials
+from google.oauth2 import service_account
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,6 +51,9 @@ INSTALLED_APPS = [
     'attendance',
     'TaskAssignment',
     'edit_profiles',
+    'fcm_django',
+    'Notification',
+    
 ]
 
 MIDDLEWARE = [
@@ -205,3 +211,23 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+credentials = service_account.Credentials.from_service_account_file(
+    os.path.join(BASE_DIR, 'firebase_credentials/firebase_credentials.json')
+)
+
+
+FCM_SERVER_KEY = os.getenv("FCM_SERVER_KEY")
+
+FCM_DJANGO_SETTINGS = {
+    "FCM_SERVER_KEY": os.getenv("FCM_SERVER_KEY"),  # The key you configured above
+    "ONE_DEVICE_PER_USER": False,      # Allow multiple devices per user
+    "DELETE_INACTIVE_DEVICES": True,   # Remove devices that are inactive
+}
+
+# Path to the Firebase credentials JSON file
+FIREBASE_CREDENTIALS_PATH = os.path.join(BASE_DIR, 'firebase_credentials/firebase_credentials.json')
+
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+firebase_admin.initialize_app(cred)
