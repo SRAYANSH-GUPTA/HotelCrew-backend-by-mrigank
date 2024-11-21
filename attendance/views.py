@@ -9,9 +9,9 @@ from django.utils import timezone
 from datetime import date,timedelta
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
-from .models import Attendance
-from .serializers import AttendanceListSerializer
-from .permissions import IsManagerOrAdmin
+from .models import Attendance,Leave
+from .serializers import AttendanceListSerializer,LeaveSerializer
+from .permissions import IsManagerOrAdmin,IsNonAdmin
 
 class AttendanceListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -215,5 +215,116 @@ class AttendanceWeekStatsView(APIView):
             'total_crew_present': total_crew_present,
             'total_staff_absent': total_staff_absent,
         }, status=status.HTTP_200_OK)
+        
+class ApplyLeaveView(APIView):
+    permission_classes= [IsNonAdmin]
+    def post(self, request):
+        user = request.user
+        
+        data = request.data
+        from_date = data.get('from_date')
+        to_date = data.get('to_date')
+        leave_type = data.get('leave_type')
 
+        if not from_date or not to_date or not leave_type:
+            return Response({
+                'status': 'error',
+                'message': 'From date, to date, and type are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            leave = Leave.objects.create(
+                user=user,
+                from_date=timezone.datetime.fromisoformat(from_date).date(),
+                to_date=timezone.datetime.fromisoformat(to_date).date(),
+                leave_type=leave_type
+            )
+            return Response({
+                'status': 'success',
+                'message': 'Leave request submitted successfully.',
+                'data': LeaveSerializer(leave).data
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class LeaveRequestListView(APIView):
+    
+    permission_classes=[IsManagerOrAdmin]
+
+    def get(self, request):
+
+        try:
+            user_hotel = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {'error': 'No hotel is associated with the authenticated user.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        managers = Manager.objects.filter(hotel=user_hotel)
+        staffs = Staff.objects.filter(hotel=user_hotel)
+        receptionists = Receptionist.objects.filter(hotel=user_hotel)
+
+        non_admin_users = list(chain(
+            (manager.user for manager in managers),
+            (staff.user for staff in staffs),
+            (receptionist.user for receptionist in receptionists)
+        ))
+            
+        pending_leaves = Leave.objects.filter(
+            user__in=non_admin_users,
+            status='Pending'
+        ).order_by('from_date')
+
+        serializer = LeaveSerializer(pending_leaves, many=True)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+        
+        
+class ApproveLeaveView(APIView):
+    
+    permission_classes=[IsManagerOrAdmin]
+    
+    def patch(self, request, leave_id):
+
+        try:
+            leave = Leave.objects.get(id=leave_id,status='Pending')
+            leave.status = request.data.get('status')
+            leave.save()
+
+            return Response({
+                'status': 'success',
+                'message': f"Leave request for {leave.user} updated to {leave.status}."
+            }, status=status.HTTP_200_OK)
+
+        except Leave.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Leave request not found or already processed.'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+class LeaveCountView(APIView):
+    def get(self, request):
+        date = request.query_params.get('date', timezone.now().date())
+
+        try:
+            date = timezone.datetime.fromisoformat(str(date)).date()
+        except ValueError:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid date format.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        leave_count = Leave.LeaveCount(date)
+
+        return Response({
+            'status': 'success',
+            'message': f"Total staff/receptionist on leave for {date}: {leave_count}",
+            'data': {'leave_count': leave_count}
+        }, status=status.HTTP_200_OK)

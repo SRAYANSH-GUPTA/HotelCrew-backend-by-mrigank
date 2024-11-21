@@ -27,3 +27,8 @@ class HotelSerializer(serializers.ModelSerializer):
         for room_type_data in room_types_data:
             RoomType.objects.create(hotel=hotel, **room_type_data)
         return hotel
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ['id', 'name', 'phone_number', 'email', 'check_in_time', 'check_out_time', 'room', 'price']

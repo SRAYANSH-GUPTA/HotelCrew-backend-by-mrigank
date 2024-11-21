@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from authentication.models import User
-from .models import Attendance
+from .models import Attendance,Leave
 from django.utils import timezone
 
 class AttendanceSerializer(serializers.ModelSerializer):
@@ -14,7 +14,7 @@ class AttendanceListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'user_name', 'email', 'role','department','current_attendance']
+        fields = ['id', 'user_name', 'email', 'role','department','current_attendance','user_profile']
 
     def get_current_attendance(self, obj):
         today = timezone.now().date()
@@ -28,3 +28,14 @@ class AttendanceListSerializer(serializers.ModelSerializer):
             except Staff.DoesNotExist:
                 return None
         return obj.role
+
+class LeaveSerializer(serializers.ModelSerializer):
+    
+    user_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Leave
+        fields = ['id','user_name','from_date', 'to_date', 'leave_type', 'status']
+        
+    def get_user_name(self,obj):
+        return obj.user.user_name

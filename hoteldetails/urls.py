@@ -3,5 +3,7 @@ from .views import *
 
 urlpatterns = [
     path('register/', HotelDetailView.as_view(), name='hotelRegister'),
-
+    path('book/',CheckinCustomerView.as_view(),name='bookroom'),
+    path('checkout/<int:customer_id>/',CheckoutCustomerView.as_view(),name='checkout'),
+    path('room-stats/',RoomStatsView.as_view(),name='stats'),
 ]
