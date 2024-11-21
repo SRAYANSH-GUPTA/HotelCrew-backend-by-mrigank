@@ -29,7 +29,7 @@ class Taskassignment(CreateAPIView):
          serializer = self.get_serializer(data=request.data, context={'request': request})
          if serializer.is_valid():
              task = serializer.save()
-             token = DeviceToken.objects.get(user=task.assinged_by).fcm_token
+             token = DeviceToken.objects.get(user=task.assigned_by).fcm_token
              send_firebase_notification(fcm_token=token, title=task.title, body=task.description)
             
              return Response({
