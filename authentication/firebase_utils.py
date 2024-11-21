@@ -1,6 +1,7 @@
 from google.oauth2 import service_account
 import google.auth.transport.requests
 import requests
+import os
 
 SCOPES = ['https://www.googleapis.com/auth/firebase.messaging']
 
@@ -9,9 +10,9 @@ def get_firebase_access_token():
     Generates an access token for Firebase Cloud Messaging API using the service account file.
     """
     credentials = service_account.Credentials.from_service_account_file(
-        'firebase_credentials/firebase_credentials.json',  # Adjust the path as needed
-        scopes=SCOPES
-    )
+    os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH'),
+    scopes=SCOPES
+)
     request = google.auth.transport.requests.Request()
     credentials.refresh(request)
     return credentials.token
