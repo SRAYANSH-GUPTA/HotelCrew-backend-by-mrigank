@@ -8,7 +8,8 @@ from .models import Task,Announcement
 from .serializers import TaskSerializer, AnnouncementSerializer, AnnouncementCreateSerializer
 from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from authentication.models import Staff
+from authentication.models import Staff, User,DeviceToken
+from authentication.firebase_utils import send_firebase_notification
 
 class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
@@ -28,6 +29,9 @@ class Taskassignment(CreateAPIView):
          serializer = self.get_serializer(data=request.data, context={'request': request})
          if serializer.is_valid():
              task = serializer.save()
+             token = DeviceToken.objects.get(user=task.assinged_by).fcm_token
+             send_firebase_notification(fcm_token=token, title=task.title, body=task.description)
+            
              return Response({
                     'status': 'success',
                     'message': 'Task created successfully',
@@ -127,6 +131,12 @@ class AnnouncementListCreateView(APIView):
         serializer = AnnouncementCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(assigned_by=request.user)
+
+            if serializer.data['department'] == 'All':
+                user = Staff.objects.all()
+            else:
+                user = Staff.objects.all(department=serializer.data['department'])
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
