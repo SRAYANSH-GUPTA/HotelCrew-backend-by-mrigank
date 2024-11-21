@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.utils.crypto import get_random_string
 from .utils import send_registration_email
 from hoteldetails.models import HotelDetails
+from django.conf import settings
 
 class CustomUserManager(BaseUserManager):
 
@@ -122,3 +123,9 @@ class Staff(models.Model):
     def __str__(self):
         return f"{self.user.email} ({self.user.role}) ({self.department}) ({self.shift})"
     
+class DeviceToken(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    fcm_token = models.TextField()
+
+    def __str__(self):
+        return f"{self.user.email} - {self.fcm_token[:10]}"    

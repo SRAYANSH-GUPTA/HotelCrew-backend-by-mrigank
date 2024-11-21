@@ -3,14 +3,14 @@ from rest_framework.decorators import action
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from .serializers import *
 from django.http import JsonResponse
 from rest_framework.generics import *
 from .models import *
-from Notification.views import register_device_token
+from .firebase_utils import send_firebase_notification
 
 def home_view(request):
     return JsonResponse({"message": "Welcome to the HotelCrew!"})
@@ -58,7 +58,6 @@ class LoginView(APIView):
 
         # Authenticate as a User
         user = authenticate(request, email=email, password=password)
-        register_device_token(user, device_token)
 
         if user is not None:
             user_role = user.role
@@ -108,3 +107,43 @@ class ResetPasswordView(APIView):
             return Response(data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class RegisterDeviceTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        fcm_token = request.data.get('fcm_token')
+        if not fcm_token:
+            return Response({'error': 'FCM token is required.'}, status=400)
+
+        DeviceToken.objects.update_or_create(
+            user=request.user,
+            defaults={'fcm_token': fcm_token}
+        )
+        return Response({'message': 'FCM token registered successfully.'})
+
+def notify_staff(staff_user, task_title):
+    try:
+        token = DeviceToken.objects.get(user=staff_user).fcm_token
+        send_firebase_notification(
+            fcm_token=token,
+            title="New Task Assigned",
+            body=f"You have been assigned the task: {task_title}"
+        )
+    except DeviceToken.DoesNotExist:
+        print(f"FCM token not found for user: {staff_user.email}")
+
+class TestNotificationView(APIView):
+    def post(self, request):
+        fcm_token = request.data.get('fcm_token')
+        if not fcm_token:
+            return Response({'error': 'FCM token is required.'}, status=400)
+
+        try:
+            response = send_firebase_notification(
+                fcm_token=fcm_token,
+                title="Test Notification",
+                body="This is a test message from Firebase Cloud Messaging."
+            )
+            return Response({'message': 'Notification sent successfully.', 'response': response})
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
