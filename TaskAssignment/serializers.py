@@ -115,9 +115,9 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
             manager = Manager.objects.get(user=request.user)
             hotel = manager.hotel
         if department == 'All':
-            assigned_staff = Staff.objects.filter(hotel=hotel,shift=self.shift)
+            assigned_staff = Staff.objects.filter(hotel=hotel,shift=shift)
         elif department:
-            assigned_staff = Staff.objects.filter(department=department, hotel=hotel,shift=self.shift)
+            assigned_staff = Staff.objects.filter(department=department, hotel=hotel,shift=shift)
 
         if not assigned_staff.exists():
             raise serializers.ValidationError(

@@ -155,13 +155,13 @@ class AnnouncementListCreateView(APIView):
 
         serializer = AnnouncementCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(assigned_by=request.user)
+            # serializer.save(assigned_by=request.user)
 
-            if serializer.data['department'] == 'All':
-                user = Staff.objects.all()
-            else:
-                user = Staff.objects.all(department=serializer.data['department'])
-            
+            # if serializer.data['department'] == 'All':
+            #     user = Staff.objects.all()
+            # else:
+            #     user = Staff.objects.all(department=serializer.data['department'])
+            serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
