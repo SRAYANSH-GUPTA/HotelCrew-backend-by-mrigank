@@ -15,6 +15,9 @@ from dotenv import load_dotenv
 from datetime import timedelta
 import os
 import dj_database_url
+import firebase_admin
+from firebase_admin import credentials
+from google.oauth2 import service_account
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,6 +51,8 @@ INSTALLED_APPS = [
     'attendance',
     'TaskAssignment',
     'edit_profiles',
+    'fcm_django',
+    
 ]
 
 MIDDLEWARE = [
@@ -205,3 +210,5 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+FIREBASE_SERVICE_ACCOUNT_PATH = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')

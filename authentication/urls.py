@@ -15,4 +15,6 @@ urlpatterns = [
     path('forget-password/', ForgetPassword.as_view(), name='forgetpassword'),
     path('verify-otp/', OTPVerificationView.as_view(), name='verify-otp'),
     path('reset-password/',ResetPasswordView.as_view(),name='reset-password'),
+    path('register-device-token/', RegisterDeviceTokenView.as_view(), name='register-device-token'),
+    path('test-notification/', TestNotificationView.as_view(), name='test-notification'),
 ]

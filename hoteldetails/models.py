@@ -1,5 +1,7 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
 
 class HotelDetails(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL,unique=True, on_delete=models.CASCADE, related_name='hotel_details')
@@ -48,3 +50,30 @@ class RoomType(models.Model):
 
     def __str__(self):
         return f"{self.room_type} - {self.hotel.hotel_name}"
+    
+    
+class Customer(models.Model):
+    hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='customers')
+    name = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=15)
+    email = models.EmailField()
+    check_in_time = models.DateTimeField()
+    check_out_time = models.DateTimeField()
+    room = models.ForeignKey('RoomType', on_delete=models.CASCADE)
+    room_no = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    # room_released = models.BooleanField(default=False)  # Track if the room has been released
+
+    # def save(self, *args, **kwargs):
+    #     # Automatically release room after checkout time
+    #     if not self.room_released and timezone.now() >= self.check_out_time:
+    #         self.release_room()
+    #     super().save(*args, **kwargs)
+
+    # def release_room(self):
+    #     # Update the room count when checkout time has passed
+    #     self.room.count += 1
+    #     self.room.save()
+    #     self.room_released = True
+    def __str__(self):
+        return f"Customer: {self.name} - Room: {self.room_no}"
