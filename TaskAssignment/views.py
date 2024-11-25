@@ -8,8 +8,9 @@ from .models import Task,Announcement
 from .serializers import TaskSerializer, AnnouncementSerializer, AnnouncementCreateSerializer
 from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from authentication.models import Staff, User,DeviceToken
+from authentication.models import Staff, User, DeviceToken, Manager, Receptionist
 from authentication.firebase_utils import send_firebase_notification
+from django.utils import timezone
 
 class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
@@ -29,9 +30,10 @@ class Taskassignment(CreateAPIView):
          serializer = self.get_serializer(data=request.data, context={'request': request})
          if serializer.is_valid():
              task = serializer.save()
-             token = DeviceToken.objects.get(user=task.assigned_by).fcm_token
+             user = Staff.objects.get(id=task.assigned_to.id).user
+             token = DeviceToken.objects.get(user= user).fcm_token
              send_firebase_notification(fcm_token=token, title=task.title, body=task.description)
-            
+             Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=False)
              return Response({
                     'status': 'success',
                     'message': 'Task created successfully',
@@ -89,7 +91,11 @@ class TaskStatusUpdateView(APIView):
 
         # Only allow updating the status field
         status_data = request.data.get("status")
+    
         if status_data is not None:
+            if status_data == "Completed":
+                task.completed_at = timezone.now()
+                Staff.objects.filter(id=task.assigned_to.id).update(is_available=True)
             task.status = status_data
             task.save()
             return Response({
@@ -112,8 +118,15 @@ class AnnouncementListCreateView(APIView):
         Admin and managers see all announcements, staff see only assigned ones.
         """
         user = request.user
-        if user.role == 'Admin'or user.role == 'Manager':
-            announcements = Announcement.objects.all()
+        if user.role == 'Manager':
+            user = Manager.objects.get(user=user)
+            announcements = Announcement.objects.filter(hotel=user.hotel)
+        elif user.role == 'receptionist':
+            user = Receptionist.objects.get(user=user)
+            announcements = Announcement.objects.filter(hotel=user.hotel)
+        elif user.role == 'Admin':
+            hotel = HotelDetails.objects.get(user = user)
+            announcements = Announcement.objects.filter(hotel=hotel)
         else:
             announcements = Announcement.objects.filter(assigned_to= user)
         

@@ -64,7 +64,7 @@ class HotelDetailView(CreateAPIView):
                                 # email=user.email,
                                 # name=user.user_name,
                                 hotel=hotel,
-                                shift=shift,
+                                shift=shift.capitalize(),
                             )
                             
                         elif role.lower()=='receptionist':
@@ -73,7 +73,7 @@ class HotelDetailView(CreateAPIView):
                                 # email=user.email,
                                 # name=user.user_name,
                                 hotel=hotel,
-                                shift=shift,
+                                shift=shift.capitalize(),
                             )
                         else:  # For staff
                             staff = Staff.objects.create(
@@ -81,8 +81,8 @@ class HotelDetailView(CreateAPIView):
                                 # email=user.email,
                                 # name=user.user_name,
                                 hotel=hotel,
-                                department=department,
-                                shift=shift,
+                                department = department.capitalize(),
+                                shift=shift.capitalize(),
                             )
 
                 except Exception as e:

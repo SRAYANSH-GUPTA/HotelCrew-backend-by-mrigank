@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import Task, TaskComment, Announcement
 from hoteldetails.models import HotelDetails
 from authentication.models import User, Manager, Staff, Receptionist
+import random
 
 class TaskSerializer(serializers.ModelSerializer):
     
@@ -36,8 +37,21 @@ class TaskSerializer(serializers.ModelSerializer):
         if data['assigned_by'].role not in [ 'Admin','Manager', 'Receptionist']:
             raise serializers.ValidationError("Only Admin, Manager and Receptionist can assign tasks")
         
-        staff = Staff.objects.get(department=data['department'], hotel=hotel)
-        data['assigned_to'] = staff
+        # staff = Staff.objects.get(department=data['department'], hotel=hotel,is_avaliable=True)
+        staff = Staff.objects.filter(department=data['department'], hotel=hotel,is_avaliable=True)
+        if not staff.exists():
+            staff = Staff.objects.filter(hotel=hotel,department=data['department'])
+            if not staff.exists():
+                raise serializers.ValidationError("No staff in the specified department.")
+            n = staff.count()
+            x= random.randint(0,n-1)
+            data['assigned_to'] = staff[x]
+        else:
+            n = staff.count()
+            x= random.randint(0,n-1)
+            data['assigned_to'] = staff[x]
+       
+        data['assigned_to'].is_avaliable = False
 
         return data
 
