@@ -44,3 +44,36 @@ def send_firebase_notification(fcm_token, title, body):
         return response.json()
     else:
         response.raise_for_status()
+
+def send_firebase_notifications(fcm_tokens, title, body):
+    """
+    Sends notifications via Firebase Cloud Messaging HTTP v1 API to multiple tokens.
+    """
+    url = "https://fcm.googleapis.com/v1/projects/hotelcrew-7f89e/messages:send"  # Replace with your project ID
+
+    # Get the Firebase access token
+    access_token = get_firebase_access_token()
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+
+    responses = []
+    for token in fcm_tokens:
+        payload = {
+            "message": {
+                "token": token,
+                "notification": {
+                    "title": title,
+                    "body": body
+                }
+            }
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            responses.append({"token": token, "status": "success", "response": response.json()})
+        else:
+            responses.append({"token": token, "status": "failure", "error": response.text})
+    
+    return responses

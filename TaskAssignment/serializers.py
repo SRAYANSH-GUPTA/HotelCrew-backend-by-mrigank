@@ -3,6 +3,23 @@ from .models import Task, TaskComment, Announcement
 from hoteldetails.models import HotelDetails
 from authentication.models import User, Manager, Staff, Receptionist
 import random
+from datetime import datetime
+import pytz
+
+def get_shift():
+        # Get the current time and determine the shift
+        timezone = pytz.timezone('Asia/Kolkata')  # Replace with your timezone if needed
+        current_time = datetime.now(timezone).time()
+
+        if current_time >= datetime.strptime('00:00', '%H:%M').time() and \
+           current_time < datetime.strptime('08:00', '%H:%M').time():
+            return 'Morning'
+        elif current_time >= datetime.strptime('08:00', '%H:%M').time() and \
+             current_time < datetime.strptime('16:00', '%H:%M').time():
+            return 'Evening'
+        else:
+            return 'Night'
+    
 
 class TaskSerializer(serializers.ModelSerializer):
     
@@ -13,6 +30,8 @@ class TaskSerializer(serializers.ModelSerializer):
         model = Task
         fields =[ 'title', 'description', 'created_at', 'updated_at', 'deadline','department', 'status', 'completed_at','assigned_by','assigned_to']
         read_only_fields = ('created_at', 'updated_at', 'completed_at')
+    
+    shift = get_shift()
 
     def validate(self, data):
         # Get the user from the context instead of data
@@ -38,9 +57,9 @@ class TaskSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Only Admin, Manager and Receptionist can assign tasks")
         
         # staff = Staff.objects.get(department=data['department'], hotel=hotel,is_avaliable=True)
-        staff = Staff.objects.filter(department=data['department'], hotel=hotel,is_avaliable=True)
+        staff = Staff.objects.filter(department=data['department'], hotel=hotel,is_avaliable=True,shift=self.shift)
         if not staff.exists():
-            staff = Staff.objects.filter(hotel=hotel,department=data['department'])
+            staff = Staff.objects.filter(hotel=hotel,department=data['department'],shift=self.shift)
             if not staff.exists():
                 raise serializers.ValidationError("No staff in the specified department.")
             n = staff.count()
@@ -88,7 +107,7 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
         
         # Extract the department from the input
         department = validated_data.get('department')
-
+        shift = get_shift()
         # Get staff members assigned to the provided department
         if request.user.role == 'Admin':
             hotel = HotelDetails.objects.get(user=request.user)
@@ -96,9 +115,9 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
             manager = Manager.objects.get(user=request.user)
             hotel = manager.hotel
         if department == 'All':
-            assigned_staff = Staff.objects.filter(hotel=hotel)
+            assigned_staff = Staff.objects.filter(hotel=hotel,shift=shift)
         elif department:
-            assigned_staff = Staff.objects.filter(department=department)
+            assigned_staff = Staff.objects.filter(department=department, hotel=hotel,shift=shift)
 
         if not assigned_staff.exists():
             raise serializers.ValidationError(

@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from authentication.throttling import updateProfileThrottle
 
 from attendance.permissions import IsManagerOrAdmin,IsManagerOrAdminOrSelf
 from authentication.models import User,Manager,Receptionist,Staff
@@ -14,7 +15,6 @@ from hoteldetails.models import HotelDetails
 
 from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer
 
-# Create your views here.
 
 class StaffListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -253,10 +253,10 @@ class UpdateHotelDetailsView(APIView):
 
 class UpdateUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
-
+    throttle_classes = [updateProfileThrottle]
     def put(self, request):
         user = request.user
-        serializer = UserSerializer(user, data=request.data,partial=True)
+        serializer = ProfileUpdateSerializer(user, data=request.data,partial=True)
 
         if serializer.is_valid():
             serializer.save() 
@@ -295,13 +295,6 @@ class ScheduleListView(ListAPIView):
         serializer = ScheduleListSerializer(non_admin_users, many=True)
         return Response({'status': 'success','schedule_list': serializer.data}, status=200)
     
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework import status
-from authentication.models import Manager, Staff, Receptionist
-from hoteldetails.models import HotelDetails
-
 class ChangeShiftView(APIView):
     permission_classes = [IsManagerOrAdmin]
 

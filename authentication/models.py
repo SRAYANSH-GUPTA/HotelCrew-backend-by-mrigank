@@ -6,6 +6,10 @@ from django.utils.crypto import get_random_string
 from .utils import send_registration_email
 from hoteldetails.models import HotelDetails
 from django.conf import settings
+from storages.backends.s3boto3 import S3Boto3Storage
+
+class ProfileImageStorage(S3Boto3Storage):
+    location = 'media'
 
 class CustomUserManager(BaseUserManager):
 
@@ -52,8 +56,14 @@ class User(AbstractUser):
     is_active = models.BooleanField(default=True)
     upi_id = models.CharField(max_length=100, blank=True, null=True)
     salary = models.IntegerField(default=0,blank=True,null=True)
-    user_profile = models.ImageField(upload_to='', default='14-cd-campogalliano-web-1565969801.jpg', blank=True, null=True)
-
+    user_profile = models.ImageField(
+        storage=ProfileImageStorage(),
+        upload_to='',
+        default='14-cd-campogalliano-web-1565969801.jpg',
+        blank=True,
+        null=True
+    )
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['user_name']
 

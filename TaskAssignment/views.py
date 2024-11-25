@@ -11,6 +11,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from authentication.models import Staff, User, DeviceToken, Manager, Receptionist
 from authentication.firebase_utils import send_firebase_notification
 from django.utils import timezone
+from rest_framework.pagination import PageNumberPagination
+from authentication.throttling import updateTaskThrottle
+class ListPagination(PageNumberPagination):
+    page_size = 10
+
 
 class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
@@ -48,6 +53,7 @@ class StaffTaskListView(ListAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
     queryset = Task.objects.all()
+    pagination_class = ListPagination
 
     def get_queryset(self):
         user= self.request.user
@@ -59,6 +65,7 @@ class AllTaskListView(ListAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAdminorManagerOrReceptionist]
     queryset = Task.objects.all()
+    pagination_class = ListPagination
 
     def get_queryset(self):
         return Task.objects.all()
@@ -67,6 +74,7 @@ class AllTaskListView(ListAPIView):
 class TaskUpdateView(UpdateAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAdminorManagerOrReceptionist]
+    throttle_classes = [updateTaskThrottle]
     queryset = Task.objects.all()
     lookup_field = 'pk'
 
@@ -79,7 +87,7 @@ class TaskDeleteView(DestroyAPIView):
 
 class TaskStatusUpdateView(APIView):
     permission_classes=[AllowAny]
-
+    throttle_classes = [updateTaskThrottle]
     def patch(self, request, pk=None):
         """
         Allows to update only the status field of a task.
@@ -111,6 +119,7 @@ class AnnouncementListCreateView(APIView):
     Handles listing all announcements and creating new ones.
     """
     permission_classes = [permissions.IsAuthenticated]
+    
 
     def get(self, request):
         """
@@ -130,8 +139,11 @@ class AnnouncementListCreateView(APIView):
         else:
             announcements = Announcement.objects.filter(assigned_to= user)
         
-        serializer = AnnouncementSerializer(announcements, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        paginator = PageNumberPagination()
+        paginator.page_size = 10 
+        paginated_announcements = paginator.paginate_queryset(announcements, request)
+        serializer = AnnouncementSerializer(paginated_announcements, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         """
@@ -143,13 +155,13 @@ class AnnouncementListCreateView(APIView):
 
         serializer = AnnouncementCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(assigned_by=request.user)
+            # serializer.save(assigned_by=request.user)
 
-            if serializer.data['department'] == 'All':
-                user = Staff.objects.all()
-            else:
-                user = Staff.objects.all(department=serializer.data['department'])
-            
+            # if serializer.data['department'] == 'All':
+            #     user = Staff.objects.all()
+            # else:
+            #     user = Staff.objects.all(department=serializer.data['department'])
+            serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
