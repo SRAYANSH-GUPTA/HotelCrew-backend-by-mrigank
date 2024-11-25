@@ -11,6 +11,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from authentication.models import Staff, User, DeviceToken, Manager, Receptionist
 from authentication.firebase_utils import send_firebase_notification
 from django.utils import timezone
+from rest_framework.pagination import PageNumberPagination
+
+class ListPagination(PageNumberPagination):
+    page_size = 10
+
 
 class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
@@ -48,6 +53,7 @@ class StaffTaskListView(ListAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
     queryset = Task.objects.all()
+    pagination_class = ListPagination
 
     def get_queryset(self):
         user= self.request.user
@@ -59,6 +65,7 @@ class AllTaskListView(ListAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAdminorManagerOrReceptionist]
     queryset = Task.objects.all()
+    pagination_class = ListPagination
 
     def get_queryset(self):
         return Task.objects.all()
@@ -111,6 +118,7 @@ class AnnouncementListCreateView(APIView):
     Handles listing all announcements and creating new ones.
     """
     permission_classes = [permissions.IsAuthenticated]
+    
 
     def get(self, request):
         """
@@ -130,8 +138,11 @@ class AnnouncementListCreateView(APIView):
         else:
             announcements = Announcement.objects.filter(assigned_to= user)
         
-        serializer = AnnouncementSerializer(announcements, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        paginator = PageNumberPagination()
+        paginator.page_size = 10 
+        paginated_announcements = paginator.paginate_queryset(announcements, request)
+        serializer = AnnouncementSerializer(paginated_announcements, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         """
