@@ -12,7 +12,7 @@ from authentication.models import Staff, User, DeviceToken, Manager, Receptionis
 from authentication.firebase_utils import send_firebase_notification
 from django.utils import timezone
 from rest_framework.pagination import PageNumberPagination
-
+from authentication.throttling import updateTaskThrottle
 class ListPagination(PageNumberPagination):
     page_size = 10
 
@@ -74,6 +74,7 @@ class AllTaskListView(ListAPIView):
 class TaskUpdateView(UpdateAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAdminorManagerOrReceptionist]
+    throttle_classes = [updateTaskThrottle]
     queryset = Task.objects.all()
     lookup_field = 'pk'
 
@@ -86,7 +87,7 @@ class TaskDeleteView(DestroyAPIView):
 
 class TaskStatusUpdateView(APIView):
     permission_classes=[AllowAny]
-
+    throttle_classes = [updateTaskThrottle]
     def patch(self, request, pk=None):
         """
         Allows to update only the status field of a task.

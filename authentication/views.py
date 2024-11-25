@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from rest_framework.generics import *
 from .models import *
 from .firebase_utils import send_firebase_notification
-
+from .throttling import loginThrottle, otpThrottle
 def home_view(request):
     return JsonResponse({"message": "Welcome to the HotelCrew!"})
 
@@ -46,7 +46,7 @@ class RegisterWithOTPView(APIView):
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
-    
+    throttle_classes = [loginThrottle]
     def post(self, request):
         email =request.data.get("email")
         password = request.data.get("password")
@@ -82,6 +82,7 @@ class LoginView(APIView):
     
 class ForgetPassword(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [otpThrottle]
     def post(self, request, *args, **kwargs):
         serializer = ForgetPassSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -89,7 +90,7 @@ class ForgetPassword(APIView):
     
 class OTPVerificationView(APIView):
     permission_classes = [AllowAny]
-
+    throttle_classes = [otpThrottle]
     def post(self, request):
         serializer = OTPVerificationSerializer(data=request.data)
         if serializer.is_valid():
