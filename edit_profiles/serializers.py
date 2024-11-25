@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from authentication.models import User
+from authentication.models import User, Staff
 from hoteldetails.models import HotelDetails
 
 from django.utils import timezone

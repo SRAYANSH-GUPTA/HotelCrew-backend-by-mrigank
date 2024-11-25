@@ -46,4 +46,8 @@ class EmailOTPModelAdmin(admin.ModelAdmin):
     search_fields = ('email',)
     ordering = ('email',)
 
-
+@admin.register(DeviceToken)
+class DeviceTokenAdmin(admin.ModelAdmin):
+    list_display = ('user', 'fcm_token')
+    search_fields = ('user__email', 'fcm_token')
+    ordering = ('user__email',)
