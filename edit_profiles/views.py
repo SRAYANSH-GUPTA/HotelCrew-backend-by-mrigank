@@ -8,7 +8,8 @@ from django.core.validators import validate_email
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from authentication.throttling import updateProfileThrottle
-from attendance.permissions import IsManagerOrAdmin
+
+from attendance.permissions import IsManagerOrAdmin,IsManagerOrAdminOrSelf
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 
@@ -96,6 +97,19 @@ class CreateCrewView(APIView):
     
 class UpdateCrewView(APIView):
     permission_classes = [IsManagerOrAdmin]
+        
+    def get(self, request, user_id):
+        permission_classes=[IsManagerOrAdminOrSelf]
+        if not request.user.is_authenticated:
+            return Response({'status': 'error', 'message': 'User must be authenticated.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'status': 'error', 'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = UserSerializer(user)
+        return Response({'status': 'success', 'user': serializer.data}, status=status.HTTP_200_OK)
 
     def put(self, request, user_id):
         if not request.user.is_authenticated:
