@@ -62,6 +62,7 @@ class Customer(models.Model):
     room = models.ForeignKey('RoomType', on_delete=models.CASCADE)
     room_no = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    checked_out = models.BooleanField(default=False) 
     # room_released = models.BooleanField(default=False)  # Track if the room has been released
 
     # def save(self, *args, **kwargs):
