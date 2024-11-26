@@ -6,6 +6,7 @@ urlpatterns = [
     path('change/<int:user_id>/', ChangeAttendanceView.as_view(), name='mark-attendance'),
     path('check/',CheckAttendanceView.as_view(),name='check-attendance'),
     path('month/',MonthlyAttendanceView.as_view(),name='monthly-attendance'),
+    path('month-check/',StaffAttendanceView.as_view(),name='monthly-attendance-check'),
     path('stats/',AttendanceStatsView.as_view(),name='attendance-stats'),
     path('week-stats/',AttendanceWeekStatsView.as_view(),name='attendance-weekly-stats'),
     path('apply_leave/',ApplyLeaveView.as_view(),name='apply-leave'),

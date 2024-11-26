@@ -11,7 +11,7 @@ from datetime import date,timedelta
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 from .models import Attendance,Leave
-from .serializers import AttendanceListSerializer,LeaveSerializer
+from .serializers import AttendanceListSerializer,LeaveSerializer,AttendanceSerializer
 from .permissions import IsManagerOrAdmin,IsNonAdmin
 
 class AttendanceListView(ListAPIView):
@@ -116,6 +116,21 @@ class CheckAttendanceView(APIView):
             return Response({'message': f'No attendance record found for {date_t}'},
                 status=status.HTTP_200_OK
             )
+            
+class StaffAttendanceView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AttendanceSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        today = timezone.now().date()
+        first_day_of_current_month = today.replace(day=1)
+
+        # Filter attendance records for the current month
+        return Attendance.objects.filter(
+            user=user,
+            date__range=[first_day_of_current_month, today]
+        ).order_by('date')
             
 class MonthlyAttendanceView(APIView):
     permission_classes = [IsAuthenticated]
