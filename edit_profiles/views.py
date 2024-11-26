@@ -13,7 +13,7 @@ from attendance.permissions import IsManagerOrAdmin,IsManagerOrAdminOrSelf
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 
-from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer
+from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer,ProfileViewSerializer
 
 
 class StaffListView(ListAPIView):
@@ -254,6 +254,12 @@ class UpdateHotelDetailsView(APIView):
 class UpdateUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UpdateProfileUserRateThrottle]
+    
+    def get(self, request):
+        user = request.user
+        serializer = ProfileViewSerializer(user)
+        return Response({'status': 'success', 'user': serializer.data}, status=status.HTTP_200_OK)
+    
     def put(self, request):
         user = request.user
         serializer = ProfileUpdateSerializer(user, data=request.data,partial=True)
