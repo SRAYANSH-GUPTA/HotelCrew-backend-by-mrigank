@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'edit_profiles',
     'fcm_django',
     'storages',
+    'payments',
     
 ]
 

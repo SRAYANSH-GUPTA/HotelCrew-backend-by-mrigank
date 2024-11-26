@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Task,Announcement
-from .serializers import TaskSerializer, AnnouncementSerializer, AnnouncementCreateSerializer
+from .serializers import TaskSerializer, AnnouncementSerializer, AnnouncementCreateSerializer, get_shift
 from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from authentication.models import Staff, User, DeviceToken, Manager, Receptionist
@@ -146,6 +146,15 @@ class TaskStatusUpdateView(APIView):
             if status_data == "Completed":
                 task.completed_at = timezone.now()
                 Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=True)
+
+                assigned_to = Staff.objects.get(id=task.assigned_to.id)
+                devicetoken = DeviceToken.objects.get(user=assigned_to.user)
+                send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Your task has been completed.")
+
+                assigned_by = task.assigned_by
+                devicetoken = DeviceToken.objects.get(user=assigned_by)
+                send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Task has been completed by staff.")
+
             task.status = status_data
             task.save()
             return Response({
@@ -270,4 +279,31 @@ class AllAnnouncementDayListView(ListAPIView):
             hotel = HotelDetails.objects.get(user = user)
         
         return Announcement.objects.filter(hotel=hotel,created_at__date=timezone.now().date())
+
+class AvailableStaffListView(APIView):
+    permission_classes = [IsAdminorManagerOrReceptionist]
+    
+    def get(self, request):
+        user= request.user
+
+        if user.role == 'Manager':
+            user = Manager.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'receptionist':
+            user = Receptionist.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'Admin':
+            hotel = HotelDetails.objects.get(user = user)
+        else:
+            return Response({"error": "User role not authorized."}, status=403)
         
+        shift = get_shift()
+        availablestaff = Staff.objects.filter(hotel=hotel,is_avaliable=True,shift=shift).count()
+        totalstaff = Staff.objects.filter(hotel=hotel,shift = shift).count()
+        staffbusy = totalstaff - availablestaff
+       
+        return Response({
+            "availablestaff": availablestaff,
+            "staffbusy": staffbusy,
+            "totalstaff": totalstaff
+        }, status=200)

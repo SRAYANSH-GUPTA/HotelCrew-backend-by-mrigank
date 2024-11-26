@@ -1,10 +1,11 @@
 from rest_framework import serializers
 from .models import Task, TaskComment, Announcement
 from hoteldetails.models import HotelDetails
-from authentication.models import User, Manager, Staff, Receptionist
+from authentication.models import User, Manager, Staff, Receptionist,DeviceToken
 import random
 from datetime import datetime
 import pytz
+from authentication.firebase_utils import send_firebase_notification,send_firebase_notifications
 
 def get_shift():
         # Get the current time and determine the shift
@@ -123,6 +124,16 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"department": "No staff found in the specified department."}
             )
+        
+        for staff in assigned_staff:
+            tokens = DeviceToken.objects.filter(user=staff.user).values_list('fcm_token', flat=True)
+            title = validated_data.get('title')
+            body = validated_data.get('description')
+            try:
+              send_firebase_notifications(list(tokens), title, body)
+            except Exception as e:
+              print(f"Failed to send notification to {staff.user}: {str(e)}")
+
 
         # Add the 'assigned_to' and 'assigned_by' fields to the validated data
         validated_data['assigned_by'] = request.user
