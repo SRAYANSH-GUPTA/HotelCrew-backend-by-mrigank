@@ -103,7 +103,7 @@ class TaskStatusUpdateView(APIView):
         if status_data is not None:
             if status_data == "Completed":
                 task.completed_at = timezone.now()
-                Staff.objects.filter(id=task.assigned_to.id).update(is_available=True)
+                Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=True)
             task.status = status_data
             task.save()
             return Response({
