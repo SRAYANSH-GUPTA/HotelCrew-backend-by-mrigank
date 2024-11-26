@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import ListAPIView
 from rest_framework import status
+from django.db.models import Sum
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import permissions
 from django.utils import timezone
@@ -116,6 +117,43 @@ class CheckAttendanceView(APIView):
                 status=status.HTTP_200_OK
             )
             
+class MonthlyAttendanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        
+        today = timezone.now().date()
+        first_day_of_current_month = today.replace(day=1)
+
+        attendance_records = Attendance.objects.filter(
+            user=user,
+            date__range=[first_day_of_current_month, today],
+            attendance=True
+        )
+
+        days_present = attendance_records.count()
+        
+        total_leave_days = Leave.objects.filter(
+            user=user,
+            status='Approved',
+            from_date__gte=first_day_of_current_month,
+            from_date__month=today.month,
+            from_date__year=today.year
+        ).aggregate(Sum('duration'))['duration__sum'] or 0
+
+        return Response(
+            {
+                'user': user.username,
+                'month': today.strftime("%B %Y"),
+                'days_present': days_present,
+                'leaves':total_leave_days,
+                'total_days_up_to_today': today.day
+            },
+            status=status.HTTP_200_OK
+        )
+
+
 class AttendanceStatsView(APIView):
     permission_classes = [IsManagerOrAdmin]
 
