@@ -11,10 +11,11 @@ class AttendanceSerializer(serializers.ModelSerializer):
 class AttendanceListSerializer(serializers.ModelSerializer):
     current_attendance = serializers.SerializerMethodField()
     department = serializers.SerializerMethodField()
+    shift = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'user_name', 'email', 'role','department','current_attendance','user_profile']
+        fields = ['id', 'user_name', 'email', 'role','department','current_attendance','user_profile','shift']
 
     def get_current_attendance(self, obj):
         today = timezone.now().date()
@@ -28,6 +29,14 @@ class AttendanceListSerializer(serializers.ModelSerializer):
             except Staff.DoesNotExist:
                 return None
         return obj.role
+    
+    def get_shift(self, obj):
+        if obj.role == 'Staff':
+            return obj.staff_profile.shift
+        elif obj.role== 'Manager':
+            return obj.manager_profile.shift
+        else:
+            return obj.receptionist_profile.shift
 
 class LeaveSerializer(serializers.ModelSerializer):
     
