@@ -8,7 +8,7 @@ from django.core.validators import validate_email
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from authentication.throttles import *
-
+import pandas as pd
 from attendance.permissions import IsManagerOrAdmin,IsManagerOrAdminOrSelf
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
@@ -336,3 +336,88 @@ class ChangeShiftView(APIView):
             {"message": "Shift updated successfully.", "user_id": user_id, "new_shift": shift},
             status=status.HTTP_200_OK
         )
+        
+class MassCreateStaffView(APIView):
+    permission_classes = [IsManagerOrAdmin]
+
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response({'status': 'error', 'message': 'User must be authenticated.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            # Retrieve the hotel associated with the authenticated user
+            hotel = HotelDetails.objects.get(user=request.user)
+        except HotelDetails.DoesNotExist:
+            return Response({'status': 'error', 'message': 'No hotel is associated with the authenticated user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        excel_file = request.FILES.get('staff_excel_sheet')
+
+        if not excel_file:
+            return Response({'status': 'error', 'message': 'Excel file is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Read the Excel file into a DataFrame
+            df = pd.read_excel(excel_file)
+
+            # Iterate over the rows in the DataFrame
+            created_users = []
+            for _, row in df.iterrows():
+                role = row.get('Role', 'Staff').capitalize()  # Default to 'Staff' if role is not specified
+                email = row.get('Email')
+                user_name = row.get('Name')
+                department = row.get('department')
+                salary = row.get('salary')
+                shift = row.get('shift')
+                upi_id = row.get('upi_id')
+
+                # Validate email presence
+                if not email:
+                    return Response({'status': 'error', 'message': 'Email is required in every row.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+                valid_roles = dict(User.ROLE_CHOICES).keys()
+                if role not in valid_roles:
+                    return Response({'status': 'error', 'message': f'Invalid role in the row: {role}'}, status=status.HTTP_400_BAD_REQUEST)
+
+                try:
+                    # Create the User instance
+                    user = User.objects.create_user(email=email, user_name=user_name, role=role, upi_id=upi_id, salary=salary)
+                    
+                    # Based on the role, create the respective model instance
+                    if role.lower() == 'manager':
+                            manager = Manager.objects.create(
+                                user=user,
+                                # email=user.email,
+                                # name=user.user_name,
+                                hotel=hotel,
+                                shift=shift.capitalize(),
+                            )
+                            
+                    elif role.lower()=='receptionist':
+                            receptionist=Receptionist.objects.create(
+                                user=user,
+                                # email=user.email,
+                                # name=user.user_name,
+                                hotel=hotel,
+                                shift=shift.capitalize(),
+                            )
+                    else:  # For staff
+                            staff = Staff.objects.create(
+                                user=user,
+                                # email=user.email,
+                                # name=user.user_name,
+                                hotel=hotel,
+                                department = department.capitalize(),
+                                shift=shift.capitalize(),
+                            )
+
+                    created_users.append(user)
+                    
+                except Exception as e:
+                    return Response({'status': 'error', 'message': f"Error processing row: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Serialize the created users
+            serializer = UserSerializer(created_users, many=True)
+            return Response({'status': 'success', 'message': 'Staff members created successfully.', 'data': serializer.data}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            return Response({'status': 'error', 'message': f"Error processing Excel file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)

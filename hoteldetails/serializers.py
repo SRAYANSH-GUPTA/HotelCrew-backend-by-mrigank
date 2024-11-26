@@ -29,6 +29,10 @@ class HotelSerializer(serializers.ModelSerializer):
         return hotel
 
 class CustomerSerializer(serializers.ModelSerializer):
+    room_type= serializers.SerializerMethodField()
     class Meta:
         model = Customer
-        fields = ['id', 'name', 'phone_number', 'email', 'check_in_time', 'check_out_time', 'room', 'price']
+        fields = ['id', 'name', 'phone_number', 'email', 'check_in_time', 'check_out_time', 'room_no','room_type', 'price','status']
+        
+    def get_room_type(self,obj):
+        return obj.room.room_type

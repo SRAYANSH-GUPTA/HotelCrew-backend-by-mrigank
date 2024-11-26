@@ -167,7 +167,8 @@ class CheckinCustomerView(APIView):
                 check_out_time=check_out_time,
                 room_no=room.count+1,
                 room=room,
-                price=room.price*stay_duration
+                price=room.price*stay_duration,
+                status=data.get('status')
             )
 
 
