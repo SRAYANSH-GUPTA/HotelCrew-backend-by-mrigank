@@ -160,11 +160,9 @@ MEDIA_ROOT = 'media/'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static')
-]
+STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+STATIC_ROOT = 'static/'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -180,8 +178,14 @@ REST_FRAMEWORK = {
     ),
 
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",
-        "user": "1000/day",
+        "login_user": "20/hour",
+        "otp_user": "20/hour",
+        "update_task_user": "20/hour",
+        "update_profile_user": "20/hour",
+        "login_anon": "10/hour",
+        "otp_anon": "10/min",
+        "update_task_anon": "10/hour",
+        "update_profile_anon": "10/hour",
     },
     
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",

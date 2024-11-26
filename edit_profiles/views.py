@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from authentication.throttling import updateProfileThrottle
+from authentication.throttles import *
 
 from attendance.permissions import IsManagerOrAdmin,IsManagerOrAdminOrSelf
 from authentication.models import User,Manager,Receptionist,Staff
@@ -253,7 +253,7 @@ class UpdateHotelDetailsView(APIView):
 
 class UpdateUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [updateProfileThrottle]
+    throttle_classes = [UpdateProfileUserRateThrottle]
     def put(self, request):
         user = request.user
         serializer = ProfileUpdateSerializer(user, data=request.data,partial=True)
