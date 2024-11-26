@@ -178,8 +178,11 @@ class AnnouncementListCreateView(APIView):
         elif user.role == 'Admin':
             hotel = HotelDetails.objects.get(user = user)
             announcements = Announcement.objects.filter(hotel=hotel)
+        elif user.role == 'Staff':
+            staff = Staff.objects.get(user=user)  
+            announcements = Announcement.objects.filter(assigned_to=staff)
         else:
-            announcements = Announcement.objects.filter(assigned_to= user)
+            return Response({"detail": "Invalid role."}, status=400)
         
         paginator = PageNumberPagination()
         paginator.page_size = 10 
