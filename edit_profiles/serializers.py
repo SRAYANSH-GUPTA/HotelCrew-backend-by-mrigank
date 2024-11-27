@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from authentication.models import User, Staff
-from hoteldetails.models import HotelDetails
+from hoteldetails.models import HotelDetails,RoomType
 
 from django.utils import timezone
 
@@ -43,10 +43,42 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'user_name', 'email', 'role', 'department','salary','upi_id','shift']
         
+class RoomTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RoomType
+        fields = ['room_type', 'count', 'price']
+        
 class HotelUpdateSerializer(serializers.ModelSerializer):
+    room_types = RoomTypeSerializer(many=True, required=False)
+
+    
     class Meta:
         model = HotelDetails
         exclude = ['user']
+        
+class ProfileViewSerializer(serializers.ModelSerializer):
+    department = serializers.SerializerMethodField()
+    shift= serializers.SerializerMethodField()    
+    class Meta:
+        model = User
+        fields = ['id','department','shift','user_name','email','role','salary','user_profile']
+        
+    def get_department(self, obj):
+        if obj.role == 'Staff':
+            try:
+                return obj.staff_profile.department
+            except Staff.DoesNotExist:
+                return None
+        return obj.role
+    
+    def get_shift(self, obj):
+        if obj.role == 'Staff':
+            return obj.staff_profile.shift
+        elif obj.role== 'Manager':
+            return obj.manager_profile.shift
+        elif obj.role=='Receptionist':
+            return obj.receptionist_profile.shift
+        return obj.role
         
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:

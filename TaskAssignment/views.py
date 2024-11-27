@@ -5,12 +5,18 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Task,Announcement
-from .serializers import TaskSerializer, AnnouncementSerializer, AnnouncementCreateSerializer
+from .serializers import TaskSerializer, AnnouncementSerializer, AnnouncementCreateSerializer, get_shift
 from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from authentication.models import Staff, User, DeviceToken, Manager, Receptionist
 from authentication.firebase_utils import send_firebase_notification
+from django.utils.timezone import now
 from django.utils import timezone
+from rest_framework.pagination import PageNumberPagination
+from authentication.throttles import *
+class ListPagination(PageNumberPagination):
+    page_size = 10
+
 
 class Taskassignment(CreateAPIView):
     serializer_class = TaskSerializer
@@ -48,6 +54,7 @@ class StaffTaskListView(ListAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
     queryset = Task.objects.all()
+    pagination_class = ListPagination
 
     def get_queryset(self):
         user= self.request.user
@@ -59,14 +66,57 @@ class AllTaskListView(ListAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAdminorManagerOrReceptionist]
     queryset = Task.objects.all()
+    pagination_class = ListPagination
 
     def get_queryset(self):
-        return Task.objects.all()
-    
+        user= self.request.user
+        if user.role == 'Manager':
+            user = Manager.objects.get(user=user)
+            return Task.objects.filter(hotel=user.hotel)
+        elif user.role == 'receptionist':
+            user = Receptionist.objects.get(user=user)
+            return Task.objects.filter(hotel=user.hotel)
+        elif user.role == 'Admin':
+            hotel = HotelDetails.objects.get(user = user)
+            return Task.objects.filter(hotel=hotel)    
+        return Task.objects.none() 
 
+class AllTaskDayListView(APIView):
+    permission_classes = [IsAdminorManagerOrReceptionist]
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user
+        
+        if user.role == 'Manager':
+            user = Manager.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'Receptionist':
+            user = Receptionist.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'Admin':
+            hotel = HotelDetails.objects.get(user=user)
+        else:
+            return Response({"detail": "Invalid user role"}, status=400)
+        
+        today = now().date()
+        totaltask = Task.objects.filter(hotel=hotel, created_at__date=today).count()
+        taskcompleted = Task.objects.filter(hotel=hotel, completed_at__date=today).count()
+        taskpending = Task.objects.filter(hotel=hotel, completed_at=None).count()
+        
+        tasks = Task.objects.filter(hotel=hotel, created_at__date=today)
+        serializer = TaskSerializer(tasks, many=True)
+
+        return Response({
+            "totaltask": totaltask,
+            "taskcompleted": taskcompleted,
+            "taskpending": taskpending,
+            "tasks": serializer.data
+        })
+    
 class TaskUpdateView(UpdateAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAdminorManagerOrReceptionist]
+    throttle_classes = [UpdateTaskUserRateThrottle]
     queryset = Task.objects.all()
     lookup_field = 'pk'
 
@@ -79,7 +129,7 @@ class TaskDeleteView(DestroyAPIView):
 
 class TaskStatusUpdateView(APIView):
     permission_classes=[AllowAny]
-
+    throttle_classes = [UpdateTaskUserRateThrottle]
     def patch(self, request, pk=None):
         """
         Allows to update only the status field of a task.
@@ -95,7 +145,16 @@ class TaskStatusUpdateView(APIView):
         if status_data is not None:
             if status_data == "Completed":
                 task.completed_at = timezone.now()
-                Staff.objects.filter(id=task.assigned_to.id).update(is_available=True)
+                Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=True)
+
+                assigned_to = Staff.objects.get(id=task.assigned_to.id)
+                devicetoken = DeviceToken.objects.get(user=assigned_to.user)
+                send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Your task has been completed.")
+
+                assigned_by = task.assigned_by
+                devicetoken = DeviceToken.objects.get(user=assigned_by)
+                send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Task has been completed by staff.")
+
             task.status = status_data
             task.save()
             return Response({
@@ -111,6 +170,7 @@ class AnnouncementListCreateView(APIView):
     Handles listing all announcements and creating new ones.
     """
     permission_classes = [permissions.IsAuthenticated]
+    
 
     def get(self, request):
         """
@@ -127,11 +187,17 @@ class AnnouncementListCreateView(APIView):
         elif user.role == 'Admin':
             hotel = HotelDetails.objects.get(user = user)
             announcements = Announcement.objects.filter(hotel=hotel)
+        elif user.role == 'Staff':
+            staff = Staff.objects.get(user=user)  
+            announcements = Announcement.objects.filter(assigned_to=staff)
         else:
-            announcements = Announcement.objects.filter(assigned_to= user)
+            return Response({"detail": "Invalid role."}, status=400)
         
-        serializer = AnnouncementSerializer(announcements, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        paginator = PageNumberPagination()
+        paginator.page_size = 10 
+        paginated_announcements = paginator.paginate_queryset(announcements, request)
+        serializer = AnnouncementSerializer(paginated_announcements, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         """
@@ -143,13 +209,13 @@ class AnnouncementListCreateView(APIView):
 
         serializer = AnnouncementCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(assigned_by=request.user)
+            # serializer.save(assigned_by=request.user)
 
-            if serializer.data['department'] == 'All':
-                user = Staff.objects.all()
-            else:
-                user = Staff.objects.all(department=serializer.data['department'])
-            
+            # if serializer.data['department'] == 'All':
+            #     user = Staff.objects.all()
+            # else:
+            #     user = Staff.objects.all(department=serializer.data['department'])
+            serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -195,4 +261,49 @@ class AnnouncementDetailView(APIView):
 
         announcement.delete()
         return Response({"message": "Announcement deleted successfully."}, status=status.HTTP_204_NO_CONTENT)  
+
+class AllAnnouncementDayListView(ListAPIView):
+    serializer_class = AnnouncementSerializer
+    permission_classes = [IsAdminorManagerOrReceptionist]
+    queryset = Announcement.objects.all()
+    pagination_class = None
+    def get_queryset(self):
+        user= self.request.user
+        if user.role == 'Manager':
+            user = Manager.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'receptionist':
+            user = Receptionist.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'Admin':
+            hotel = HotelDetails.objects.get(user = user)
         
+        return Announcement.objects.filter(hotel=hotel,created_at__date=timezone.now().date())
+
+class AvailableStaffListView(APIView):
+    permission_classes = [IsAdminorManagerOrReceptionist]
+    
+    def get(self, request):
+        user= request.user
+
+        if user.role == 'Manager':
+            user = Manager.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'receptionist':
+            user = Receptionist.objects.get(user=user)
+            hotel = user.hotel
+        elif user.role == 'Admin':
+            hotel = HotelDetails.objects.get(user = user)
+        else:
+            return Response({"error": "User role not authorized."}, status=403)
+        
+        shift = get_shift()
+        availablestaff = Staff.objects.filter(hotel=hotel,is_avaliable=True,shift=shift).count()
+        totalstaff = Staff.objects.filter(hotel=hotel,shift = shift).count()
+        staffbusy = totalstaff - availablestaff
+       
+        return Response({
+            "availablestaff": availablestaff,
+            "staffbusy": staffbusy,
+            "totalstaff": totalstaff
+        }, status=200)
