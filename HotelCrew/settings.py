@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'fcm_django',
     'storages',
     'payments',
+    'statics',
     
 ]
 
