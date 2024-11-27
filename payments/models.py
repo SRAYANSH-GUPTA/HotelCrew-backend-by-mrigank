@@ -9,7 +9,6 @@ class wallet(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     wallet_id = models.CharField(max_length=100, unique=True)
     
-    wallet_id = "WAL" + str(user) + str(created_at) + str(hotel) 
 
     def __str__(self):
         return f"{self.user} - {self.hotel.hotel_name} - {self.balance}"
@@ -27,7 +26,6 @@ class Transaction(models.Model):
     transaction_type = models.CharField(choices=PAYMENT_TYPE ,max_length=100, default='Salary')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    transaction_id = "TRN" + str(wallet) + str(created_at)
 
     def __str__(self):
         return f"{self.wallet} - {self.amount} - {self.transaction_type}"
