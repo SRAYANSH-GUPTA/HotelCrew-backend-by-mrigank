@@ -29,7 +29,7 @@ class TaskSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Task
-        fields =[ 'title', 'description', 'created_at', 'updated_at', 'deadline','department', 'status', 'completed_at','assigned_by','assigned_to']
+        fields =['id', 'title', 'description', 'created_at', 'updated_at', 'deadline','department', 'status', 'completed_at','assigned_by','assigned_to']
         read_only_fields = ('created_at', 'updated_at', 'completed_at')
     
     shift = get_shift()

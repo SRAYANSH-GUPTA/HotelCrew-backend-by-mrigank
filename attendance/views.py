@@ -254,19 +254,20 @@ class AttendanceWeekStatsView(APIView):
         dates = []
         total_crew_present = []
         total_staff_absent = []
-
+        total_crew_leave =[]
         for day in past_7_days:
             present = Attendance.objects.filter(user__in=non_admin_users, date=day, attendance=True).count()
             crew = Attendance.objects.filter(user__in=non_admin_users, date=day).count()
-            
+            leave = Leave.objects.filter(user__in=non_admin_users, from_date=day, status='Approved').count()
             dates.append(day)
             total_crew_present.append(present)
-            total_staff_absent.append(crew - present)
-
+            total_staff_absent.append(crew - present-leave)
+            total_crew_leave.append(leave)
         return Response({
             'dates': dates,
             'total_crew_present': total_crew_present,
             'total_staff_absent': total_staff_absent,
+            'total_leave': total_crew_leave
         }, status=status.HTTP_200_OK)
         
 class ApplyLeaveView(APIView):
