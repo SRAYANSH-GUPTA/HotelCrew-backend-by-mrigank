@@ -289,11 +289,12 @@ class ApplyLeaveView(APIView):
         from_date = data.get('from_date')
         to_date = data.get('to_date')
         leave_type = data.get('leave_type')
+        reason = data.get('reason')
 
-        if not from_date or not to_date or not leave_type:
+        if not from_date or not to_date or not leave_type or not reason:
             return Response({
                 'status': 'error',
-                'message': 'From date, to date, and type are required.'
+                'message': 'From date, to date,description and leave type are required.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -301,7 +302,8 @@ class ApplyLeaveView(APIView):
                 user=user,
                 from_date=timezone.datetime.fromisoformat(from_date).date(),
                 to_date=timezone.datetime.fromisoformat(to_date).date(),
-                leave_type=leave_type
+                leave_type=leave_type,
+                reason=reason
             )
             return Response({
                 'status': 'success',

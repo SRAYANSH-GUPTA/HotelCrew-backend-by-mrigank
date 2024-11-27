@@ -195,7 +195,7 @@ class CheckinCustomerView(APIView):
 class CurrentCustomersView(ListAPIView):
     permission_classes =[IsNonStaff]
     serializer_class = CustomerSerializer
-
+    pagination_class = None
     def get_queryset(self):
         try:
             hotel = HotelDetails.objects.get(user=self.request.user)
@@ -326,4 +326,17 @@ class DailyRoomsOccupiedView(APIView):
             "rooms_occupied": rooms_occupied_today,
             "available_rooms": available_rooms,
         }, status=status.HTTP_200_OK)
-        
+
+def hotelname(user):
+    if user.role=='Manager':
+        user = Manager.objects.get(user =user)
+        hotel = user.hotel
+    elif user.role=='Receptionist':
+        user = Receptionist.objects.get(user=user)
+        hotel = user.hotel
+    elif user.role=='Admin':
+        hotel = HotelDetails.objects.get(user=user)
+    elif user.role=='Staff':
+        user = Staff.objects.get(user=user)
+        hotel = user.hotel
+    return hotel    
