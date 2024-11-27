@@ -13,7 +13,7 @@ from attendance.permissions import IsManagerOrAdmin,IsManagerOrAdminOrSelf
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 
-from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer
+from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer,ProfileViewSerializer
 
 
 class StaffListView(ListAPIView):
@@ -190,6 +190,8 @@ class DeleteCrewView(APIView):
             }, status=status.HTTP_403_FORBIDDEN)
 
         try:
+            if User.role == 'Admin':
+                return Response({'status': 'error', 'message': 'You cannot delete an Admin.'}, status=status.HTTP_403_FORBIDDEN)
             user_to_delete = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response({'status': 'error', 'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -254,6 +256,12 @@ class UpdateHotelDetailsView(APIView):
 class UpdateUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UpdateProfileUserRateThrottle]
+    
+    def get(self, request):
+        user = request.user
+        serializer = ProfileViewSerializer(user)
+        return Response({'status': 'success', 'user': serializer.data}, status=status.HTTP_200_OK)
+    
     def put(self, request):
         user = request.user
         serializer = ProfileUpdateSerializer(user, data=request.data,partial=True)

@@ -11,7 +11,7 @@ from datetime import date,timedelta
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
 from .models import Attendance,Leave
-from .serializers import AttendanceListSerializer,LeaveSerializer
+from .serializers import AttendanceListSerializer,LeaveSerializer,AttendanceSerializer
 from .permissions import IsManagerOrAdmin,IsNonAdmin
 
 class AttendanceListView(ListAPIView):
@@ -116,6 +116,21 @@ class CheckAttendanceView(APIView):
             return Response({'message': f'No attendance record found for {date_t}'},
                 status=status.HTTP_200_OK
             )
+            
+class StaffAttendanceView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AttendanceSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        today = timezone.now().date()
+        first_day_of_current_month = today.replace(day=1)
+
+        # Filter attendance records for the current month
+        return Attendance.objects.filter(
+            user=user,
+            date__range=[first_day_of_current_month, today]
+        ).order_by('date')
             
 class MonthlyAttendanceView(APIView):
     permission_classes = [IsAuthenticated]
@@ -239,23 +254,34 @@ class AttendanceWeekStatsView(APIView):
         dates = []
         total_crew_present = []
         total_staff_absent = []
-
+        total_crew_leave =[]
         for day in past_7_days:
             present = Attendance.objects.filter(user__in=non_admin_users, date=day, attendance=True).count()
             crew = Attendance.objects.filter(user__in=non_admin_users, date=day).count()
-            
+            leave = Leave.objects.filter(user__in=non_admin_users, from_date=day, status='Approved').count()
             dates.append(day)
             total_crew_present.append(present)
-            total_staff_absent.append(crew - present)
-
+            total_staff_absent.append(crew - present-leave)
+            total_crew_leave.append(leave)
         return Response({
             'dates': dates,
             'total_crew_present': total_crew_present,
             'total_staff_absent': total_staff_absent,
+            'total_leave': total_crew_leave
         }, status=status.HTTP_200_OK)
         
 class ApplyLeaveView(APIView):
     permission_classes= [IsNonAdmin]
+    
+    def get(self, request):
+        user = request.user
+        leaves = Leave.objects.filter(user=user)
+        serializer = LeaveSerializer(leaves, many=True)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+    
     def post(self, request):
         user = request.user
         
@@ -263,11 +289,12 @@ class ApplyLeaveView(APIView):
         from_date = data.get('from_date')
         to_date = data.get('to_date')
         leave_type = data.get('leave_type')
+        reason = data.get('reason')
 
-        if not from_date or not to_date or not leave_type:
+        if not from_date or not to_date or not leave_type or not reason:
             return Response({
                 'status': 'error',
-                'message': 'From date, to date, and type are required.'
+                'message': 'From date, to date,description and leave type are required.'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -275,7 +302,8 @@ class ApplyLeaveView(APIView):
                 user=user,
                 from_date=timezone.datetime.fromisoformat(from_date).date(),
                 to_date=timezone.datetime.fromisoformat(to_date).date(),
-                leave_type=leave_type
+                leave_type=leave_type,
+                reason=reason
             )
             return Response({
                 'status': 'success',
