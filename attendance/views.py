@@ -23,7 +23,7 @@ class AttendanceListView(ListAPIView):
         user = request.user
         try:
             if user.role == 'Admin':
-                return Response({'error': 'Admins cannot have attendance records.'}, status=status.HTTP_400_BAD_REQUEST)
+                user_hotel = HotelDetails.objects.get(user=user)
             else:
                 user = Manager.objects.get(user=user)
                 user_hotel = user.hotel
@@ -181,8 +181,10 @@ class AttendanceStatsView(APIView):
         current_month_start = today.replace(day=1)
         
         try:
-          
-            user_hotel = HotelDetails.objects.get(user=request.user)
+           if request.user.role == 'Admin':
+              user_hotel = HotelDetails.objects.get(user=request.user)
+           elif request.user.role == 'Manager':
+               user_hotel = Manager.objects.get(user=request.user).hotel
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with you!.'},
