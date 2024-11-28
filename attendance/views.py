@@ -20,10 +20,14 @@ class AttendanceListView(ListAPIView):
      def get(self, request):
         today = timezone.now().date()
         # user_hotel
-        
+        user = request.user
         try:
-          
-            user_hotel = HotelDetails.objects.get(user=request.user)
+            if user.role == 'Admin':
+                return Response({'error': 'Admins cannot have attendance records.'}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                user = Manager.objects.get(user=user)
+                user_hotel = user.hotel
+           
             # print("hi")
         except HotelDetails.DoesNotExist:
             return Response(
