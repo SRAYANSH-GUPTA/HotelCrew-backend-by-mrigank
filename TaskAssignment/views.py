@@ -37,9 +37,12 @@ class Taskassignment(CreateAPIView):
          if serializer.is_valid():
              task = serializer.save()
              user = Staff.objects.get(id=task.assigned_to.id).user
-             token = DeviceToken.objects.get(user= user).fcm_token
-             send_firebase_notification(fcm_token=token, title=task.title, body=task.description)
-             Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=False)
+             if not DeviceToken.objects.filter(user=user).exists():
+                Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=False)
+             else:
+                token = DeviceToken.objects.get(user= user).fcm_token
+                send_firebase_notification(fcm_token=token, title=task.title, body=task.description)
+                Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=False)
              return Response({
                     'status': 'success',
                     'message': 'Task created successfully',
@@ -59,7 +62,7 @@ class StaffTaskListView(ListAPIView):
     def get_queryset(self):
         user= self.request.user
         user = user.id
-        return Task.objects.filter(assigned_to=user)
+        return Task.objects.filter(assigned_to=user).order_by('-created_at')
     
 
 class AllTaskListView(ListAPIView):
@@ -72,13 +75,13 @@ class AllTaskListView(ListAPIView):
         user= self.request.user
         if user.role == 'Manager':
             user = Manager.objects.get(user=user)
-            return Task.objects.filter(hotel=user.hotel)
+            return Task.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'receptionist':
             user = Receptionist.objects.get(user=user)
-            return Task.objects.filter(hotel=user.hotel)
+            return Task.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'Admin':
             hotel = HotelDetails.objects.get(user = user)
-            return Task.objects.filter(hotel=hotel)    
+            return Task.objects.filter(hotel=hotel).order_by('-created_at') 
         return Task.objects.none() 
 
 class AllTaskDayListView(APIView):
@@ -103,7 +106,7 @@ class AllTaskDayListView(APIView):
         taskcompleted = Task.objects.filter(hotel=hotel, completed_at__date=today).count()
         taskpending = Task.objects.filter(hotel=hotel, completed_at=None).count()
         
-        tasks = Task.objects.filter(hotel=hotel, created_at__date=today)
+        tasks = Task.objects.filter(hotel=hotel, created_at__date=today).order_by('-created_at')
         serializer = TaskSerializer(tasks, many=True)
 
         return Response({
@@ -180,16 +183,16 @@ class AnnouncementListCreateView(APIView):
         user = request.user
         if user.role == 'Manager':
             user = Manager.objects.get(user=user)
-            announcements = Announcement.objects.filter(hotel=user.hotel)
+            announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'receptionist':
             user = Receptionist.objects.get(user=user)
-            announcements = Announcement.objects.filter(hotel=user.hotel)
+            announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'Admin':
             hotel = HotelDetails.objects.get(user = user)
-            announcements = Announcement.objects.filter(hotel=hotel)
+            announcements = Announcement.objects.filter(hotel=hotel).order_by('-created_at')
         elif user.role == 'Staff':
             staff = Staff.objects.get(user=user)  
-            announcements = Announcement.objects.filter(assigned_to=staff)
+            announcements = Announcement.objects.filter(assigned_to=staff).order_by('-created_at')
         else:
             return Response({"detail": "Invalid role."}, status=400)
         
@@ -278,7 +281,7 @@ class AllAnnouncementDayListView(ListAPIView):
         elif user.role == 'Admin':
             hotel = HotelDetails.objects.get(user = user)
         
-        return Announcement.objects.filter(hotel=hotel,created_at__date=timezone.now().date())
+        return Announcement.objects.filter(hotel=hotel,created_at__date=timezone.now().date()).order_by('-created_at')
 
 class AvailableStaffListView(APIView):
     permission_classes = [IsAdminorManagerOrReceptionist]

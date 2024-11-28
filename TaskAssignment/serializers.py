@@ -115,6 +115,9 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
         elif request.user.role == 'Manager':
             manager = Manager.objects.get(user=request.user)
             hotel = manager.hotel
+        else:
+            raise serializers.ValidationError({"error": "Unauthorized user role."})
+
         if department == 'All':
             assigned_staff = Staff.objects.filter(hotel=hotel,shift=shift)
         elif department:
@@ -125,15 +128,19 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
                 {"department": "No staff found in the specified department."}
             )
         
+        all_tokens = []
         for staff in assigned_staff:
             tokens = DeviceToken.objects.filter(user=staff.user).values_list('fcm_token', flat=True)
+            if tokens:
+                all_tokens.extend(tokens)
+            
+        if all_tokens:
             title = validated_data.get('title')
             body = validated_data.get('description')
             try:
-              send_firebase_notifications(list(tokens), title, body)
+                send_firebase_notifications(all_tokens, title, body)
             except Exception as e:
-              print(f"Failed to send notification to {staff.user}: {str(e)}")
-
+                print(f"Failed to send notifications: {str(e)}")
 
         # Add the 'assigned_to' and 'assigned_by' fields to the validated data
         validated_data['assigned_by'] = request.user
