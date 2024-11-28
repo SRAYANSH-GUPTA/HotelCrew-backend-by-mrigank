@@ -61,7 +61,9 @@ class StaffTaskListView(ListAPIView):
 
     def get_queryset(self):
         user= self.request.user
-        user = user.id
+        
+        user = Staff.objects.get(user=user).id
+        
         return Task.objects.filter(assigned_to=user).order_by('-created_at')
     
 
