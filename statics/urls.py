@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import MonthlyHotelPerformanceView, MonthlyStaffPerformanceView, MonthlyFinanceView
+from .views import WeeklyHotelPerformanceView, WeeklyStaffPerformanceView, WeeklyFinanceView
 
 urlpatterns = [
-    path('performance/hotel/monthly/', MonthlyHotelPerformanceView.as_view(), name='hotel-performance-monthly'),
-    path('performance/staff/monthly/', MonthlyStaffPerformanceView.as_view(), name='staff-performance-monthly'),
-    path('finance/monthly/', MonthlyFinanceView.as_view(), name='finance-monthly'),
+    path('performance/hotel/week/', WeeklyHotelPerformanceView.as_view(), name='hotel-performance-weekly'),
+    path('performance/staff/week/', WeeklyStaffPerformanceView.as_view(), name='staff-performance-monthly'),
+    path('finance/week/', WeeklyFinanceView.as_view(), name='finance-monthly'),
 ]
