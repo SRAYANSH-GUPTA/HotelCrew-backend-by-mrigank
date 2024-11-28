@@ -3,12 +3,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from attendance.models import *
-from .serializers import MonthlyHotelPerformanceSerializer, MonthlyStaffPerformanceSerializer
+from .serializers import MonthlyHotelPerformanceSerializer, MonthlyStaffPerformanceSerializer, MonthlyFinanceSerializer
 from datetime import timedelta
 from django.utils.timezone import now
 from attendance.permissions import *
 from TaskAssignment.models import Task
 from authentication.models import Staff
+from attendance.models import Attendance, Leave
+from hoteldetails.models import Customer
 
 class MonthlyHotelPerformanceView(APIView):
     permission_classes = [IsManagerOrAdmin]
@@ -86,4 +88,39 @@ class MonthlyStaffPerformanceView(APIView):
             'daily_stats': daily_stats
         }
         serializer = MonthlyStaffPerformanceSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class MonthlyFinanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role not in ['Admin', 'Manager']:
+            return Response({"error": "You do not have permission to view this data."}, status=status.HTTP_403_FORBIDDEN)
+
+        today = now().date()
+        first_day = today.replace(day=1)
+        last_day = (first_day + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        daily_stats = []
+
+        for single_date in (first_day + timedelta(days=x) for x in range((last_day - first_day).days + 1)):
+
+        # Get all customers who have checked out within the month
+            checked_out_customers = Customer.objects.filter(check_out_time__date=today, checked_out=True)
+
+            total_revenue = 0
+            for customer in checked_out_customers:
+                total_revenue += customer.price  # Add the price of the room for each customer
+
+            daily_stats.append({
+                'date': single_date,
+                'total_revenue': total_revenue
+            })
+
+        data = {
+            'month': today.strftime('%B %Y'),
+            'daily_stats': daily_stats
+        }
+
+        serializer = MonthlyFinanceSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
