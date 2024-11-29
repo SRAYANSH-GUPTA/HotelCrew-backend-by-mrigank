@@ -23,12 +23,10 @@ class AttendanceListView(ListAPIView):
         # user_hotel
         user = request.user
         try:
-            if user.role == 'Admin':
-                user_hotel = HotelDetails.objects.get(user=user)
-            else:
-                user = Manager.objects.get(user=user)
-                user_hotel = user.hotel
-           
+            user_hotel =get_hotel(user)
+            if not user_hotel:
+               return Response({"error": "Hotel not found"}, status=404)
+          
             # print("hi")
         except HotelDetails.DoesNotExist:
             return Response(
@@ -182,10 +180,9 @@ class AttendanceStatsView(APIView):
         current_month_start = today.replace(day=1)
         
         try:
-           if request.user.role == 'Admin':
-              user_hotel = HotelDetails.objects.get(user=request.user)
-           elif request.user.role == 'Manager':
-               user_hotel = Manager.objects.get(user=request.user).hotel
+            user_hotel = get_hotel(request.user)
+            if not user_hotel:
+               return Response({"error": "Hotel not found"}, status=404)
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with you!.'},
@@ -242,6 +239,8 @@ class AttendanceWeekStatsView(APIView):
 
         try:
             user_hotel = get_hotel(request.user)
+            if not user_hotel:
+               return Response({"error": "Hotel not found"}, status=404)
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with the authenticated user.'},
@@ -333,7 +332,9 @@ class LeaveRequestListView(APIView):
     def get(self, request):
 
         try:
-            user_hotel = HotelDetails.objects.get(user=request.user)
+            user_hotel = get_hotel(request.user)
+            if not user_hotel:
+               return Response({"error": "Hotel not found"}, status=404)
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with the authenticated user.'},

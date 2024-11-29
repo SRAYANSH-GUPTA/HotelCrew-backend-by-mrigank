@@ -14,6 +14,7 @@ from hoteldetails.models import Customer
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from django.db.models import Sum
+from hoteldetails.utils import get_hotel
 
 class WeeklyHotelPerformanceView(APIView):
     permission_classes = [IsManagerOrAdmin]
@@ -22,7 +23,11 @@ class WeeklyHotelPerformanceView(APIView):
         user = request.user
         if user.role not in ['Admin', 'Manager']:
             return Response({"error": "You do not have permission to view this data."}, status=status.HTTP_403_FORBIDDEN)
-
+        
+        hotel = get_hotel(user)
+        if not hotel:
+            return Response({"error": "Hotel information is required for performance data."}, status=status.HTTP_400_BAD_REQUEST)
+        
         today = now().date()
         start_of_week = today - timedelta(days=today.weekday())  
         end_of_week = start_of_week + timedelta(days=6)  
@@ -185,6 +190,10 @@ class WeeklyFinanceView(APIView):
         user = request.user
         if user.role not in ['Admin', 'Manager']:
             return Response({"error": "You do not have permission to view this data."}, status=status.HTTP_403_FORBIDDEN)
+        
+        hotel = get_hotel(user)
+        if not hotel:
+            return Response({"error": "Hotel information is required for finance data."}, status=status.HTTP_400_BAD_REQUEST)
 
         today = now().date()
         start_of_week = today - timedelta(days=today.weekday())  # Start of the week (Monday)

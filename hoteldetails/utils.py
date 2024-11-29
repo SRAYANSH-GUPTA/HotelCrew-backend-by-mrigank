@@ -20,11 +20,23 @@ def get_shift():
     
 def get_hotel(user):
     if user.role=='Admin':
-        hotel = HotelDetails.objects.get(user=user)
+        if HotelDetails.objects.filter(user=user).exists():   
+           hotel = HotelDetails.objects.get(user=user)
+        else:
+            hotel = None
     elif user.role=='Manager':
-        hotel = Manager.objects.get(user =user).hotel
+        if Manager.objects.filter(user=user).exists():
+           hotel = Manager.objects.get(user =user).hotel
+        else:
+            hotel = None
     elif user.role=='Receptionist':
-        hotel = Receptionist.objects.get(user=user).hotel
+        if Receptionist.objects.filter(user=user).exists():
+           hotel = Receptionist.objects.get(user=user).hotel
+        else:
+            hotel = None
     elif user.role=='Staff':
-        hotel = Staff.objects.get(user=user).hotel
+        if Staff.objects.filter(user=user).exists():
+           hotel = Staff.objects.get(user=user).hotel
+        else:
+            hotel = None
     return hotel
