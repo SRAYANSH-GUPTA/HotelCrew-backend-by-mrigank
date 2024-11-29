@@ -126,7 +126,7 @@ class Receptionist(models.Model):
 class Staff(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile')
     hotel = models.ForeignKey(HotelDetails, on_delete=models.CASCADE, related_name='staff')
-    department=models.CharField(max_length=40)
+    department=models.CharField(max_length=40,default='Housekeeping')
     shift = models.CharField(max_length=20, choices=SHIFT_CHOICES, default='Morning')
     is_avaliable = models.BooleanField(default=True)
 
