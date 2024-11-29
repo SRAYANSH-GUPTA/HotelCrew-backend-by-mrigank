@@ -6,7 +6,7 @@ import random
 from datetime import datetime
 import pytz
 from authentication.firebase_utils import send_firebase_notification,send_firebase_notifications
-from hoteldetails.utils import get_shift
+from hoteldetails.utils import get_shift, get_hotel
 
     
 
@@ -25,16 +25,10 @@ class TaskSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # Get the user from the context instead of data
         user = self.context['request'].user
-        if(user.role == 'Admin'):
-            hotel = HotelDetails.objects.get(user=user)
-        elif(user.role == 'Manager'):
-            manager = Manager.objects.get(user=user)
-            hotel = manager.hotel
-        elif(user.role == 'Receptionist'):
-            receptionist = Receptionist.objects.get(user=user)
-            hotel = receptionist.hotel
-        else:
-            raise serializers.ValidationError("Only Admin, Manager and Receptionist can assign tasks")
+        hotel = get_hotel(user)
+        if not hotel:
+            raise serializers.ValidationError("Hotel information is required for task assignment.")
+       
         data['hotel'] = hotel
         # Add assigned_by to data
         data['assigned_by'] = user
@@ -98,13 +92,9 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
         department = validated_data.get('department')
         shift = get_shift()
         # Get staff members assigned to the provided department
-        if request.user.role == 'Admin':
-            hotel = HotelDetails.objects.get(user=request.user)
-        elif request.user.role == 'Manager':
-            manager = Manager.objects.get(user=request.user)
-            hotel = manager.hotel
-        else:
-            raise serializers.ValidationError({"error": "Unauthorized user role."})
+        hotel = get_hotel(request.user)
+        if not hotel:
+            raise serializers.ValidationError("Hotel information is required for announcement.")
 
         if department == 'All':
             assigned_staff = Staff.objects.filter(hotel=hotel,shift=shift)
