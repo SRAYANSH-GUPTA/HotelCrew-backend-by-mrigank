@@ -1,6 +1,6 @@
 from .models import wallet, Transaction
 from rest_framework import serializers
-from hoteldetails.views import hotelname
+from hoteldetails.utils import get_hotel as hotelname
 import random
 from authentication.models import User
 import uuid

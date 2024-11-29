@@ -6,20 +6,8 @@ import random
 from datetime import datetime
 import pytz
 from authentication.firebase_utils import send_firebase_notification,send_firebase_notifications
+from hoteldetails.utils import get_shift
 
-def get_shift():
-        # Get the current time and determine the shift
-        timezone = pytz.timezone('Asia/Kolkata')  # Replace with your timezone if needed
-        current_time = datetime.now(timezone).time()
-
-        if current_time >= datetime.strptime('00:00', '%H:%M').time() and \
-           current_time < datetime.strptime('08:00', '%H:%M').time():
-            return 'Morning'
-        elif current_time >= datetime.strptime('08:00', '%H:%M').time() and \
-             current_time < datetime.strptime('16:00', '%H:%M').time():
-            return 'Evening'
-        else:
-            return 'Night'
     
 
 class TaskSerializer(serializers.ModelSerializer):
