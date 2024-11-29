@@ -20,10 +20,14 @@ class AttendanceListView(ListAPIView):
      def get(self, request):
         today = timezone.now().date()
         # user_hotel
-        
+        user = request.user
         try:
-          
-            user_hotel = HotelDetails.objects.get(user=request.user)
+            if user.role == 'Admin':
+                user_hotel = HotelDetails.objects.get(user=user)
+            else:
+                user = Manager.objects.get(user=user)
+                user_hotel = user.hotel
+           
             # print("hi")
         except HotelDetails.DoesNotExist:
             return Response(
@@ -177,8 +181,10 @@ class AttendanceStatsView(APIView):
         current_month_start = today.replace(day=1)
         
         try:
-          
-            user_hotel = HotelDetails.objects.get(user=request.user)
+           if request.user.role == 'Admin':
+              user_hotel = HotelDetails.objects.get(user=request.user)
+           elif request.user.role == 'Manager':
+               user_hotel = Manager.objects.get(user=request.user).hotel
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with you!.'},
