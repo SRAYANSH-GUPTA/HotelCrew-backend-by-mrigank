@@ -10,7 +10,7 @@ class AttendanceAdmin(admin.ModelAdmin):
     
 @admin.register(Leave)
 class LeaveAdmin(admin.ModelAdmin):
-    list_display = ('user', 'from_date', 'status')
+    list_display = ('user', 'from_date','to_date', 'status')
     list_filter = ('status', 'from_date', 'user')
     search_fields = ('user__email',)
     ordering = ('-from_date',)

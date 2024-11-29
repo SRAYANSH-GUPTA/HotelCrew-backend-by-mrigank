@@ -13,7 +13,8 @@ from hoteldetails.models import HotelDetails
 from .models import Attendance,Leave
 from .serializers import AttendanceListSerializer,LeaveSerializer,AttendanceSerializer
 from .permissions import IsManagerOrAdmin,IsNonAdmin
-
+from hoteldetails.utils import get_hotel
+from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 class AttendanceListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
 
@@ -232,7 +233,7 @@ class AttendanceStatsView(APIView):
         }, status=status.HTTP_200_OK)
 
 class AttendanceWeekStatsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminorManagerOrReceptionist]
 
     def get(self, request):
         today = timezone.now().date()
@@ -240,7 +241,7 @@ class AttendanceWeekStatsView(APIView):
         past_7_days.reverse()
 
         try:
-            user_hotel = HotelDetails.objects.get(user=request.user)
+            user_hotel = get_hotel(request.user)
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with the authenticated user.'},
@@ -261,14 +262,16 @@ class AttendanceWeekStatsView(APIView):
         total_crew_present = []
         total_staff_absent = []
         total_crew_leave =[]
+
         for day in past_7_days:
             present = Attendance.objects.filter(user__in=non_admin_users, date=day, attendance=True).count()
             crew = Attendance.objects.filter(user__in=non_admin_users, date=day).count()
-            leave = Leave.objects.filter(user__in=non_admin_users, from_date=day, status='Approved').count()
+            leave = Leave.objects.filter(user__in=non_admin_users, from_date=day,to_date=day, status='Approved').count()
             dates.append(day)
-            total_crew_present.append(present)
+            total_crew_present.append(present-leave)
             total_staff_absent.append(crew - present-leave)
             total_crew_leave.append(leave)
+
         return Response({
             'dates': dates,
             'total_crew_present': total_crew_present,

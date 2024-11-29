@@ -388,9 +388,9 @@ class MassCreateStaffView(APIView):
                 role = row.get('Role', 'Staff').capitalize()  # Default to 'Staff' if role is not specified
                 email = row.get('Email')
                 user_name = row.get('Name')
-                department = row.get('department')
-                salary = row.get('salary')
-                shift = row.get('shift')
+                department = row.get('department', 'Housekeeping')
+                salary = row.get('salary', 0)
+                shift = row.get('shift', 'Morning')
                 upi_id = row.get('upi_id')
 
                 # Validate email presence
