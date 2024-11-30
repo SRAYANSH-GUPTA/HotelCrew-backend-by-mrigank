@@ -14,6 +14,8 @@ from django.utils.timezone import now
 from django.utils import timezone
 from rest_framework.pagination import PageNumberPagination
 from authentication.throttles import *
+from hoteldetails.utils import get_hotel
+from rest_framework.exceptions import ValidationError
 class ListPagination(PageNumberPagination):
     page_size = 10
 
@@ -37,9 +39,12 @@ class Taskassignment(CreateAPIView):
          if serializer.is_valid():
              task = serializer.save()
              user = Staff.objects.get(id=task.assigned_to.id).user
-             token = DeviceToken.objects.get(user= user).fcm_token
-             send_firebase_notification(fcm_token=token, title=task.title, body=task.description)
-             Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=False)
+             if not DeviceToken.objects.filter(user=user).exists():
+                Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=False)
+             else:
+                token = DeviceToken.objects.get(user= user).fcm_token
+                send_firebase_notification(fcm_token=token, title=task.title, body=task.description)
+                Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=False)
              return Response({
                     'status': 'success',
                     'message': 'Task created successfully',
@@ -58,8 +63,10 @@ class StaffTaskListView(ListAPIView):
 
     def get_queryset(self):
         user= self.request.user
-        user = user.id
-        return Task.objects.filter(assigned_to=user)
+        
+        user = Staff.objects.get(user=user).id
+        
+        return Task.objects.filter(assigned_to=user).order_by('-created_at')
     
 
 class AllTaskListView(ListAPIView):
@@ -70,16 +77,11 @@ class AllTaskListView(ListAPIView):
 
     def get_queryset(self):
         user= self.request.user
-        if user.role == 'Manager':
-            user = Manager.objects.get(user=user)
-            return Task.objects.filter(hotel=user.hotel)
-        elif user.role == 'receptionist':
-            user = Receptionist.objects.get(user=user)
-            return Task.objects.filter(hotel=user.hotel)
-        elif user.role == 'Admin':
-            hotel = HotelDetails.objects.get(user = user)
-            return Task.objects.filter(hotel=hotel)    
-        return Task.objects.none() 
+        hotel = get_hotel(user)
+        if not hotel:
+            raise ValidationError({"error": "Hotel not found"})
+        return Task.objects.filter(hotel=hotel).order_by('-created_at')
+        
 
 class AllTaskDayListView(APIView):
     permission_classes = [IsAdminorManagerOrReceptionist]
@@ -87,23 +89,16 @@ class AllTaskDayListView(APIView):
     def get(self, request, *args, **kwargs):
         user = self.request.user
         
-        if user.role == 'Manager':
-            user = Manager.objects.get(user=user)
-            hotel = user.hotel
-        elif user.role == 'Receptionist':
-            user = Receptionist.objects.get(user=user)
-            hotel = user.hotel
-        elif user.role == 'Admin':
-            hotel = HotelDetails.objects.get(user=user)
-        else:
-            return Response({"detail": "Invalid user role"}, status=400)
+        hotel = get_hotel(user)
+        if not hotel:
+            raise ValidationError({"error": "Hotel not found"})
         
         today = now().date()
         totaltask = Task.objects.filter(hotel=hotel, created_at__date=today).count()
         taskcompleted = Task.objects.filter(hotel=hotel, completed_at__date=today).count()
         taskpending = Task.objects.filter(hotel=hotel, completed_at=None).count()
         
-        tasks = Task.objects.filter(hotel=hotel, created_at__date=today)
+        tasks = Task.objects.filter(hotel=hotel, created_at__date=today).order_by('-created_at')
         serializer = TaskSerializer(tasks, many=True)
 
         return Response({
@@ -125,6 +120,17 @@ class TaskDeleteView(DestroyAPIView):
     permission_classes = [IsAdminorManagerOrReceptionist]
     queryset = Task.objects.all()
     lookup_field = 'pk'
+
+    def destroy(self, request, *args, **kwargs):
+        task = self.get_object()
+
+        if task.assigned_to:
+            task.assigned_to.is_avaliable = True
+            task.assigned_to.save()
+
+        super().destroy(request, *args, **kwargs)
+
+        return Response({"detail": "Task deleted successfully and staff status updated."}, status=status.HTTP_200_OK)
 
 
 class TaskStatusUpdateView(APIView):
@@ -178,18 +184,22 @@ class AnnouncementListCreateView(APIView):
         Admin and managers see all announcements, staff see only assigned ones.
         """
         user = request.user
+        hOtel = get_hotel(user)
+        if not hOtel:
+            return Response({"error": "Hotel not found"}, status=404)
+        
         if user.role == 'Manager':
             user = Manager.objects.get(user=user)
-            announcements = Announcement.objects.filter(hotel=user.hotel)
+            announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'receptionist':
             user = Receptionist.objects.get(user=user)
-            announcements = Announcement.objects.filter(hotel=user.hotel)
+            announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'Admin':
             hotel = HotelDetails.objects.get(user = user)
-            announcements = Announcement.objects.filter(hotel=hotel)
+            announcements = Announcement.objects.filter(hotel=hotel).order_by('-created_at')
         elif user.role == 'Staff':
             staff = Staff.objects.get(user=user)  
-            announcements = Announcement.objects.filter(assigned_to=staff)
+            announcements = Announcement.objects.filter(assigned_to=staff).order_by('-created_at')
         else:
             return Response({"detail": "Invalid role."}, status=400)
         
@@ -269,16 +279,11 @@ class AllAnnouncementDayListView(ListAPIView):
     pagination_class = None
     def get_queryset(self):
         user= self.request.user
-        if user.role == 'Manager':
-            user = Manager.objects.get(user=user)
-            hotel = user.hotel
-        elif user.role == 'receptionist':
-            user = Receptionist.objects.get(user=user)
-            hotel = user.hotel
-        elif user.role == 'Admin':
-            hotel = HotelDetails.objects.get(user = user)
+        hotel = get_hotel(user)
+        if not hotel:
+            raise ValidationError({"error": "Hotel not found"})
         
-        return Announcement.objects.filter(hotel=hotel,created_at__date=timezone.now().date())
+        return Announcement.objects.filter(hotel=hotel,created_at__date=timezone.now().date()).order_by('-created_at')
 
 class AvailableStaffListView(APIView):
     permission_classes = [IsAdminorManagerOrReceptionist]
@@ -286,16 +291,9 @@ class AvailableStaffListView(APIView):
     def get(self, request):
         user= request.user
 
-        if user.role == 'Manager':
-            user = Manager.objects.get(user=user)
-            hotel = user.hotel
-        elif user.role == 'receptionist':
-            user = Receptionist.objects.get(user=user)
-            hotel = user.hotel
-        elif user.role == 'Admin':
-            hotel = HotelDetails.objects.get(user = user)
-        else:
-            return Response({"error": "User role not authorized."}, status=403)
+        hotel = get_hotel(user)
+        if not hotel:
+            raise ValidationError({"error": "Hotel not found"})
         
         shift = get_shift()
         availablestaff = Staff.objects.filter(hotel=hotel,is_avaliable=True,shift=shift).count()

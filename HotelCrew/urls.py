@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/taskassignment/', include('TaskAssignment.urls')),
     path('api/edit/',include('edit_profiles.urls')),
     path('api/pay/', include('payments.urls')),
+    path('api/statics/', include('statics.urls')),
 
 ]
 

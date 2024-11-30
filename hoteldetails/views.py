@@ -12,6 +12,7 @@ from rest_framework.generics import ListAPIView
 from django.utils.timezone import now, timedelta
 from django.db.models import Sum, Count
 from datetime import timedelta
+from hoteldetails.utils import get_hotel
 
 
 
@@ -107,7 +108,7 @@ class CheckinCustomerView(APIView):
     def post(self, request):
         
         try:
-            hotel = HotelDetails.objects.get(user=request.user)
+           hotel = get_hotel(request.user)
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -198,7 +199,7 @@ class CurrentCustomersView(ListAPIView):
     pagination_class = None
     def get_queryset(self):
         try:
-            hotel = HotelDetails.objects.get(user=self.request.user)
+           hotel = get_hotel(self.request.user)
         except HotelDetails.DoesNotExist:
             return Customer.objects.none()
         
@@ -255,7 +256,7 @@ class RoomStatsView(APIView):
     def get(self, request):
 
         try:
-            hotel = HotelDetails.objects.get(user=request.user)
+           hotel = get_hotel(request.user)
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -301,15 +302,7 @@ class DailyRoomsOccupiedView(APIView):
     def get(self, request):
     
         try:
-            user=request.user
-            if user.role=='Manager':
-               user = Manager.objects.get(user =user)
-               hotel = user.hotel
-            elif user.role=='Receptionist':
-                user = Receptionist.objects.get(user=user)
-                hotel = user.hotel
-            elif user.role=='Admin':
-                hotel = HotelDetails.objects.get(user=user)
+              hotel = get_hotel(request.user)
 
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
@@ -327,16 +320,3 @@ class DailyRoomsOccupiedView(APIView):
             "available_rooms": available_rooms,
         }, status=status.HTTP_200_OK)
 
-def hotelname(user):
-    if user.role=='Manager':
-        user = Manager.objects.get(user =user)
-        hotel = user.hotel
-    elif user.role=='Receptionist':
-        user = Receptionist.objects.get(user=user)
-        hotel = user.hotel
-    elif user.role=='Admin':
-        hotel = HotelDetails.objects.get(user=user)
-    elif user.role=='Staff':
-        user = Staff.objects.get(user=user)
-        hotel = user.hotel
-    return hotel    

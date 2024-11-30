@@ -9,9 +9,12 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from authentication.throttles import *
 import pandas as pd
-from attendance.permissions import IsManagerOrAdmin,IsManagerOrAdminOrSelf
+from attendance.permissions import *
 from authentication.models import User,Manager,Receptionist,Staff
 from hoteldetails.models import HotelDetails
+from hoteldetails.utils import get_hotel
+from django.core import serializers
+from hoteldetails.serializers import HotelSerializer
 
 from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer,ProfileViewSerializer
 
@@ -20,14 +23,15 @@ class StaffListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
 
      def get(self, request):
-        
+        user = request.user
         try:
-          
-            user_hotel = HotelDetails.objects.get(user=request.user)
+            user_hotel= get_hotel(user)
+            if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
         except HotelDetails.DoesNotExist:
             return Response(
-                {'error': 'No hotel is associated with you!.'},
-                status=status.HTTP_400_BAD_REQUEST
+                {'message': 'No hotel is associated with you!.'},
+                status=status.HTTP_200_OK
             )
         
         managers=Manager.objects.filter(hotel=user_hotel)
@@ -56,9 +60,11 @@ class CreateCrewView(APIView):
             return Response({'status': 'error', 'message': 'User must be authenticated.'}, status=status.HTTP_403_FORBIDDEN)
         
         
-
+        user = request.user
         try:
-            user_hotel = HotelDetails.objects.get(user=request.user)
+            user_hotel = get_hotel(user)
+            if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
         except HotelDetails.DoesNotExist:
             return Response({'status': 'error', 'message': 'No hotel is associated with the authenticated user.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -96,7 +102,7 @@ class CreateCrewView(APIView):
         return Response({'status': 'success', 'message': 'User created successfully.', 'user': serializer.data}, status=status.HTTP_201_CREATED)
     
 class UpdateCrewView(APIView):
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsManagerOrAdminOrSelf]
         
     def get(self, request, user_id):
         permission_classes=[IsManagerOrAdminOrSelf]
@@ -121,7 +127,10 @@ class UpdateCrewView(APIView):
             return Response({'status': 'error', 'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            user_hotel = HotelDetails.objects.get(user=request.user)
+            if user.role == 'Admin' or user.role == 'Manager':
+                user_hotel = get_hotel(user)
+            else:
+                return Response({'status': 'error', 'message': 'You are not allowed to do this operation.'}, status=status.HTTP_403_FORBIDDEN)
         except HotelDetails.DoesNotExist:
             return Response({'status': 'error', 'message': 'No hotel is associated with the authenticated user.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -211,7 +220,7 @@ class DeleteCrewView(APIView):
         }, status=status.HTTP_204_NO_CONTENT)
         
 class GetHotelDetailsView(APIView):
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         try:
@@ -230,16 +239,22 @@ class GetHotelDetailsView(APIView):
         }, status=status.HTTP_200_OK)
 
 class UpdateHotelDetailsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdmin]
 
     def put(self, request):
         try:
             hotel_details = HotelDetails.objects.get(user=request.user)
         except HotelDetails.DoesNotExist:
-            return Response({
-                'status': 'error',
-                'message': 'No hotel is associated with the authenticated user.'
-            }, status=status.HTTP_400_BAD_REQUEST)
+                serializer = HotelSerializer(data=request.data,context={'request':request})
+                if serializer.is_valid():
+                    hotel= serializer.save()
+
+                    return Response({
+                        'status': 'success',
+                        'message': 'Hotel registered successfully',
+                        'hotel': serializer.data,
+                    }, status=status.HTTP_201_CREATED)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = HotelUpdateSerializer(hotel_details, data=request.data, partial=True)
         if serializer.is_valid():
@@ -278,8 +293,10 @@ class ScheduleListView(ListAPIView):
      def get(self, request):
         
         try:
-          
-            user_hotel = HotelDetails.objects.get(user=request.user)
+           user_hotel = get_hotel(request.user)
+           if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
+        
         except HotelDetails.DoesNotExist:
             return Response(
                 {'error': 'No hotel is associated with you!.'},
@@ -316,7 +333,10 @@ class ChangeShiftView(APIView):
             )
 
         try:
-            user_hotel = HotelDetails.objects.get(user=request.user)
+           user_hotel = get_hotel(request.user)
+           if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
+        
         except HotelDetails.DoesNotExist:
             return Response(
                 {"error": "You are not associated with a hotel."},
@@ -346,7 +366,7 @@ class ChangeShiftView(APIView):
         )
         
 class MassCreateStaffView(APIView):
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         if not request.user.is_authenticated:
@@ -354,7 +374,10 @@ class MassCreateStaffView(APIView):
 
         try:
             # Retrieve the hotel associated with the authenticated user
-            hotel = HotelDetails.objects.get(user=request.user)
+           hotel = get_hotel(request.user)
+           if not hotel:
+                raise serializers.ValidationError("Hotel information is required.")
+        
         except HotelDetails.DoesNotExist:
             return Response({'status': 'error', 'message': 'No hotel is associated with the authenticated user.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -373,9 +396,9 @@ class MassCreateStaffView(APIView):
                 role = row.get('Role', 'Staff').capitalize()  # Default to 'Staff' if role is not specified
                 email = row.get('Email')
                 user_name = row.get('Name')
-                department = row.get('department')
-                salary = row.get('salary')
-                shift = row.get('shift')
+                department = row.get('department', 'Housekeeping')
+                salary = row.get('salary', 0)
+                shift = row.get('shift', 'Morning')
                 upi_id = row.get('upi_id')
 
                 # Validate email presence

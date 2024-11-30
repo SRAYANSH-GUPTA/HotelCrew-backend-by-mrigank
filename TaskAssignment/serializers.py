@@ -6,20 +6,8 @@ import random
 from datetime import datetime
 import pytz
 from authentication.firebase_utils import send_firebase_notification,send_firebase_notifications
+from hoteldetails.utils import get_shift, get_hotel
 
-def get_shift():
-        # Get the current time and determine the shift
-        timezone = pytz.timezone('Asia/Kolkata')  # Replace with your timezone if needed
-        current_time = datetime.now(timezone).time()
-
-        if current_time >= datetime.strptime('00:00', '%H:%M').time() and \
-           current_time < datetime.strptime('08:00', '%H:%M').time():
-            return 'Morning'
-        elif current_time >= datetime.strptime('08:00', '%H:%M').time() and \
-             current_time < datetime.strptime('16:00', '%H:%M').time():
-            return 'Evening'
-        else:
-            return 'Night'
     
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -37,16 +25,10 @@ class TaskSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # Get the user from the context instead of data
         user = self.context['request'].user
-        if(user.role == 'Admin'):
-            hotel = HotelDetails.objects.get(user=user)
-        elif(user.role == 'Manager'):
-            manager = Manager.objects.get(user=user)
-            hotel = manager.hotel
-        elif(user.role == 'Receptionist'):
-            receptionist = Receptionist.objects.get(user=user)
-            hotel = receptionist.hotel
-        else:
-            raise serializers.ValidationError("Only Admin, Manager and Receptionist can assign tasks")
+        hotel = get_hotel(user)
+        if not hotel:
+            raise serializers.ValidationError("Hotel information is required for task assignment.")
+       
         data['hotel'] = hotel
         # Add assigned_by to data
         data['assigned_by'] = user
@@ -110,11 +92,10 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
         department = validated_data.get('department')
         shift = get_shift()
         # Get staff members assigned to the provided department
-        if request.user.role == 'Admin':
-            hotel = HotelDetails.objects.get(user=request.user)
-        elif request.user.role == 'Manager':
-            manager = Manager.objects.get(user=request.user)
-            hotel = manager.hotel
+        hotel = get_hotel(request.user)
+        if not hotel:
+            raise serializers.ValidationError("Hotel information is required for announcement.")
+
         if department == 'All':
             assigned_staff = Staff.objects.filter(hotel=hotel,shift=shift)
         elif department:
@@ -125,15 +106,19 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
                 {"department": "No staff found in the specified department."}
             )
         
+        all_tokens = []
         for staff in assigned_staff:
             tokens = DeviceToken.objects.filter(user=staff.user).values_list('fcm_token', flat=True)
+            if tokens:
+                all_tokens.extend(tokens)
+            
+        if all_tokens:
             title = validated_data.get('title')
             body = validated_data.get('description')
             try:
-              send_firebase_notifications(list(tokens), title, body)
+                send_firebase_notifications(all_tokens, title, body)
             except Exception as e:
-              print(f"Failed to send notification to {staff.user}: {str(e)}")
-
+                print(f"Failed to send notifications: {str(e)}")
 
         # Add the 'assigned_to' and 'assigned_by' fields to the validated data
         validated_data['assigned_by'] = request.user
