@@ -96,9 +96,30 @@ class AllTaskDayListView(APIView):
         today = now().date()
         totaltask = Task.objects.filter(hotel=hotel, created_at__date=today).count()
         taskcompleted = Task.objects.filter(hotel=hotel, completed_at__date=today).count()
-        taskpending = Task.objects.filter(hotel=hotel, completed_at=None).count()
+        taskpending = Task.objects.filter(hotel=hotel, completed_at=None,updated_at__date=today).count()
         
         tasks = Task.objects.filter(hotel=hotel, created_at__date=today).order_by('-created_at')
+        serializer = TaskSerializer(tasks, many=True)
+
+        return Response({
+            "totaltask": totaltask,
+            "taskcompleted": taskcompleted,
+            "taskpending": taskpending,
+            "tasks": serializer.data
+        })
+    
+class StaffAllTaskOfDayListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user
+        user = Staff.objects.get(user=user)
+        today = now().date()
+        totaltask = Task.objects.filter(assigned_to=user, created_at__date=today).count()
+        taskcompleted = Task.objects.filter(assigned_to=user, completed_at__date=today).count()
+        taskpending = Task.objects.filter(assigned_to=user, completed_at=None,updated_at__date=today).count()
+        
+        tasks = Task.objects.filter(assigned_to=user, created_at__date=today).order_by('-created_at')
         serializer = TaskSerializer(tasks, many=True)
 
         return Response({
