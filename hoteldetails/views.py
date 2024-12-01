@@ -13,13 +13,14 @@ from django.utils.timezone import now, timedelta
 from django.db.models import Sum, Count
 from datetime import timedelta
 from hoteldetails.utils import get_hotel
+from attendance.permissions import *
 
 
 
 class HotelDetailView(CreateAPIView):
    queryset = HotelDetails.objects.all()
    serializer_class = HotelSerializer
-   permission_classes = [AllowAny]
+   permission_classes = [IsAdmin]
 
    def post(self, request):
         if not request.user.is_authenticated:
@@ -29,77 +30,21 @@ class HotelDetailView(CreateAPIView):
             }, status=status.HTTP_403_FORBIDDEN)
             
         serializer = self.get_serializer(data=request.data,context={'request': request})
-        if serializer.is_valid():
-            hotel = serializer.save()
-            
-            excel_file = request.FILES.get('staff_excel_sheet')
-            
-            if excel_file:
-                try:
-                    df = pd.read_excel(excel_file)
-
-                    
-                    for _, row in df.iterrows():
-                        role = row.get('Role', 'Staff')  # Default to 'Staff' if not specified
-                        email = row['Email']
-                        name = row['Name']
-                        department = row['department']  
-                        salary=row['salary']
-                        shift=row['shift']
-                        upi_id=row['upi_id']
-
-
-                        user=User.objects.create_user(
-                            email=email,
-                            user_name=name,
-                            role=role,
-                            salary=salary,
-                            upi_id=upi_id
-                        )
-                        # department = Department.objects.create(
-                        #     name=sub_role,
-                        # )
-                        # Check the role and create the appropriate user
-                        if role.lower() == 'manager':
-                            manager = Manager.objects.create(
-                                user=user,
-                                # email=user.email,
-                                # name=user.user_name,
-                                hotel=hotel,
-                                shift=shift.capitalize(),
-                            )
-                            
-                        elif role.lower()=='receptionist':
-                            receptionist=Receptionist.objects.create(
-                                user=user,
-                                # email=user.email,
-                                # name=user.user_name,
-                                hotel=hotel,
-                                shift=shift.capitalize(),
-                            )
-                        else:  # For staff
-                            staff = Staff.objects.create(
-                                user=user,
-                                # email=user.email,
-                                # name=user.user_name,
-                                hotel=hotel,
-                                department = department.capitalize(),
-                                shift=shift.capitalize(),
-                            )
-
-                except Exception as e:
-                    return Response({
-                        'status': 'error',
-                        'message': f"Error processing Excel file: {str(e)}"
-                    }, status=status.HTTP_400_BAD_REQUEST)
-                    
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if HotelDetails.objects.filter(user=request.user).exists():
             return Response({
+                'status': 'error',
+                'message': 'A hotel is already registered for this user.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        hotel = serializer.save()  
+        
+        return Response({
                 'status': 'success',
                 'message': 'Hotel registered successfully',
                 'hotel': serializer.data,
             }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
     
 class CheckinCustomerView(APIView):
     
@@ -109,6 +54,11 @@ class CheckinCustomerView(APIView):
         
         try:
            hotel = get_hotel(request.user)
+           if not hotel:
+               return Response({
+                   'status': 'error',
+                   'message': 'No hotel associated .'
+               }, status=status.HTTP_400_BAD_REQUEST)
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -122,7 +72,11 @@ class CheckinCustomerView(APIView):
                 'status': 'error',
                 'message': 'Room type, check-in time, and check-out time are required.'
             }, status=status.HTTP_400_BAD_REQUEST)
-
+        if not data.get('name') or not data.get('email') or not data.get('status') or not data.get('phone_number'):
+            return Response({
+                'status': 'error',
+                'message': 'Name, email, phone number, and status are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)  
         try:
             check_in_time = timezone.now()
             check_out_time = timezone.make_aware(timezone.datetime.fromisoformat(check_out))
@@ -143,7 +97,7 @@ class CheckinCustomerView(APIView):
             #     customer.save()
 
 
-            room = RoomType.objects.get(room_type=room_type)
+            room = RoomType.objects.get(room_type=room_type, hotel=hotel)
             
 
             if room.count <= 0:
@@ -153,9 +107,7 @@ class CheckinCustomerView(APIView):
                 }, status=status.HTTP_404_NOT_FOUND)
                 
             stay_duration = (check_out_time - check_in_time).days+1
-            
-            print(stay_duration)
-            
+                        
             room.count -= 1
             room.save()
 
@@ -200,6 +152,7 @@ class CurrentCustomersView(ListAPIView):
     def get_queryset(self):
         try:
            hotel = get_hotel(self.request.user)
+           
         except HotelDetails.DoesNotExist:
             return Customer.objects.none()
         
@@ -210,8 +163,16 @@ class CheckoutCustomerView(APIView):
     permission_classes = [IsNonStaff]
     
     def post(self, request, customer_id):
+
+        hotel = get_hotel(request.user)
+        if not hotel:
+            return Response({
+                'status': 'error',
+                'message': 'No hotel associated .'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
-            customer = Customer.objects.get(id=customer_id)
+            customer = Customer.objects.get(id=customer_id, hotel=hotel)
         except Customer.DoesNotExist:
             return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -257,6 +218,11 @@ class RoomStatsView(APIView):
 
         try:
            hotel = get_hotel(request.user)
+           if not hotel:
+                  return Response({
+                      'status': 'error',
+                      'message': 'No hotel associated .'
+                  }, status=status.HTTP_400_BAD_REQUEST)
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -303,6 +269,11 @@ class DailyRoomsOccupiedView(APIView):
     
         try:
               hotel = get_hotel(request.user)
+              if not hotel:
+                  return Response({
+                      'status': 'error',
+                      'message': 'No hotel associated .'
+                  }, status=status.HTTP_400_BAD_REQUEST)
 
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
@@ -320,3 +291,91 @@ class DailyRoomsOccupiedView(APIView):
             "available_rooms": available_rooms,
         }, status=status.HTTP_200_OK)
 
+class ExcelSheetView(APIView):
+    permission_classes = [IsAdmin]
+    
+    def post(self,request):
+        if not request.user.is_authenticated:
+            return Response({
+                'status': 'error',
+                'message': 'User must be authenticated.'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+              hotel = get_hotel(request.user)
+              if not hotel:
+                  return Response({
+                      'status': 'error',
+                      'message': 'No hotel associated .'
+                  }, status=status.HTTP_400_BAD_REQUEST)
+        except HotelDetails.DoesNotExist:
+            return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        excel_file = request.FILES.get('staff_excel_sheet')
+            
+        if not excel_file:
+            return Response({
+                'status': 'error',
+                'message': 'Excel file is required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+                df = pd.read_excel(excel_file)
+
+                required_columns = {'Email', 'Name', 'Role', 'department', 'salary', 'shift', 'upi_id'}
+                if not required_columns.issubset(df.columns):
+                    return Response({
+                        'status': 'error',
+                        'message': f'Missing required columns: {required_columns - set(df.columns)}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                    
+                user_data = []
+                manager_data = []
+                receptionist_data = []
+                staff_data = []
+
+
+                for _, row in df.iterrows():
+                    role = row.get('Role', 'Staff').capitalize()  # Default to 'Staff' if not specified
+                    user = User(
+                        email=row['Email'],
+                        user_name=row['Name'],
+                        role=role,
+                        salary=row['salary'],
+                        upi_id=row['upi_id']
+                    )
+                    user_data.append(user)
+
+                    if role == 'Manager':
+                       manager_data.append((user, row['shift']))
+                    elif role == 'Receptionist':
+                       receptionist_data.append((user, row['shift']))
+                    else:
+                        staff_data.append((user, row['department'], row['shift']))
+     
+                User.objects.bulk_create(user_data)
+
+                Manager.objects.bulk_create([
+                    Manager(user=user, hotel=hotel, shift=shift.capitalize()) 
+                    for user, shift in manager_data
+                ])
+                Receptionist.objects.bulk_create([
+                    Receptionist(user=user, hotel=hotel, shift=shift.capitalize()) 
+                    for user, shift in receptionist_data
+                ])
+                Staff.objects.bulk_create([
+                    Staff(user=user, hotel=hotel, department=department.capitalize(), shift=shift.capitalize()) 
+                    for user, department, shift in staff_data
+                ])
+        
+                return Response({
+                    'status': 'success',
+                    'message': 'Staff details uploaded successfully.'
+                }, status=status.HTTP_201_CREATED)
+    
+        except Exception as e:
+                return Response({
+                        'status': 'error',
+                        'message': f"Error processing Excel file: {str(e)}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
