@@ -12,6 +12,7 @@ from rest_framework.generics import *
 from .models import *
 from .firebase_utils import send_firebase_notification
 from .throttles import *
+from hoteldetails.utils import get_hotel
 def home_view(request):
     return JsonResponse({"message": "Welcome to the HotelCrew!"})
 
@@ -37,6 +38,7 @@ class RegisterWithOTPView(APIView):
             access_token = str(refresh.access_token)
             return Response({
                 "message": "User registered successfully",
+                "hotel details":"not registered",
                  "access_token": access_token,
                 "refresh_token": str(refresh),
                 "user_id": user.id,
@@ -50,7 +52,6 @@ class LoginView(APIView):
     def post(self, request):
         email =request.data.get("email")
         password = request.data.get("password")
-        device_token = request.data.get("device_token")
 
         user_role = None
         user_data = {}
@@ -69,9 +70,17 @@ class LoginView(APIView):
             }
             refresh = RefreshToken.for_user(user)
             access_token = str(refresh.access_token)
-
+        
+            hotel = get_hotel(user=user)
+            if hotel:
+                hotel_data = {
+                    "name": hotel.hotel_name,
+                }
+            else:
+                hotel_data = "not registered"
+        
             return Response({
-                
+                "hotel details":hotel_data,
                 "access_token": access_token,
                 "refress_token": str(refresh),
                 "role": user_role,
