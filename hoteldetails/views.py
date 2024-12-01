@@ -163,8 +163,16 @@ class CheckoutCustomerView(APIView):
     permission_classes = [IsNonStaff]
     
     def post(self, request, customer_id):
+
+        hotel = get_hotel(request.user)
+        if not hotel:
+            return Response({
+                'status': 'error',
+                'message': 'No hotel associated .'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         try:
-            customer = Customer.objects.get(id=customer_id)
+            customer = Customer.objects.get(id=customer_id, hotel=hotel)
         except Customer.DoesNotExist:
             return Response({"error": "Customer not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -210,6 +218,11 @@ class RoomStatsView(APIView):
 
         try:
            hotel = get_hotel(request.user)
+           if not hotel:
+                  return Response({
+                      'status': 'error',
+                      'message': 'No hotel associated .'
+                  }, status=status.HTTP_400_BAD_REQUEST)
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -256,6 +269,11 @@ class DailyRoomsOccupiedView(APIView):
     
         try:
               hotel = get_hotel(request.user)
+              if not hotel:
+                  return Response({
+                      'status': 'error',
+                      'message': 'No hotel associated .'
+                  }, status=status.HTTP_400_BAD_REQUEST)
 
         except HotelDetails.DoesNotExist:
             return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
