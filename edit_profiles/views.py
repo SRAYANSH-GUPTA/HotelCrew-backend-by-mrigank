@@ -17,7 +17,7 @@ from django.core import serializers
 from hoteldetails.serializers import HotelSerializer
 
 from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer,ProfileViewSerializer
-
+import re
 
 class StaffListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -70,16 +70,19 @@ class CreateCrewView(APIView):
 
         data = request.data
         role = data.get('role', 'Staff').capitalize()
-        email, user_name = data.get('email'), data.get('user_name')
-        department = data.get('department')
-        salary = data.get('salary')
+        email= data.get('email')
+        user_name =data.get('user_name').strip()
+        department = data.get('department', 'Housekeeping').capitalize()
+        salary = data.get('salary', 0)
         upi_id = data.get('upi_id')
-        shift = data.get('shift')
+        shift = data.get('shift', 'Morning').capitalize()
         
 
         if not email:
             return Response({'status': 'error', 'message': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+        if not re.search(r'[a-zA-Z0-9]', user_name):
+            return Response({'status':'error','message':"Username must contain at least one letter or number and cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
+       
         valid_roles = dict(User.ROLE_CHOICES).keys()
         if role not in valid_roles:
             return Response({'status': 'error', 'message':'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
