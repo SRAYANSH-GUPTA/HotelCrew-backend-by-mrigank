@@ -322,7 +322,7 @@ class ExcelSheetView(APIView):
         try:
                 df = pd.read_excel(excel_file)
 
-                required_columns = {'Email', 'Name', 'Role', 'department', 'salary', 'shift', 'upi_id'}
+                required_columns = {'Email', 'Name', 'Role', 'Department', 'Salary', 'Shift', 'Upi_id'}
                 if not required_columns.issubset(df.columns):
                     return Response({
                         'status': 'error',
@@ -341,17 +341,18 @@ class ExcelSheetView(APIView):
                         email=row['Email'],
                         user_name=row['Name'],
                         role=role,
-                        salary=row['salary'],
-                        upi_id=row['upi_id']
+                        salary=row['Salary'],
+                        upi_id=row['Upi_id'],
+                        hotel=hotel
                     )
                     user_data.append(user)
 
                     if role == 'Manager':
-                       manager_data.append((user, row['shift']))
+                       manager_data.append((user, row['Shift']))
                     elif role == 'Receptionist':
-                       receptionist_data.append((user, row['shift']))
+                       receptionist_data.append((user, row['Shift']))
                     else:
-                        staff_data.append((user, row['department'], row['shift']))
+                        staff_data.append((user, row['Department'], row['Shift']))
      
                 User.objects.bulk_create(user_data)
 
