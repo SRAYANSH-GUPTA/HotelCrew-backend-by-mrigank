@@ -139,10 +139,10 @@ class UpdateCrewView(APIView):
         new_role = data.get('role', user.role).capitalize()
         new_email = data.get('email', user.email)
         user_name = data.get('user_name', user.user_name)
-        department = data.get('department', user.department).capitalize()
+        department = data.get('department')
         salary = data.get('salary', user.salary)
         upi_id = data.get('upi_id', user.upi_id)
-        shift = data.get('shift', user.shift).capitalize()
+        shift = data.get('shift')
 
         if new_email != user.email:
             try:
@@ -217,22 +217,30 @@ class DeleteCrewView(APIView):
                 'status': 'error',
                 'message': 'No hotel is associated with the authenticated user.'
             }, status=status.HTTP_400_BAD_REQUEST)
-
-        if user_to_delete.role == 'Manager':
-            Manager.objects.filter(user=user_to_delete,hotel=hotel).delete()
-        elif user_to_delete.role == 'Receptionist':
-            Receptionist.objects.filter(user=user_to_delete,hotel=hotel).delete()
-        elif user_to_delete.role == 'Staff':
-            Staff.objects.filter(user=user_to_delete,hotel=hotel).delete()
-        else:
+        
+        user_to_delete_hotel = get_hotel(user_to_delete)
+        if not user_to_delete_hotel:
             return Response({
                 'status': 'error',
-                'message': 'User role not recognized.'
+                'message': 'No hotel is associated with the user to be deleted.'
             }, status=status.HTTP_400_BAD_REQUEST)
-
-        hOtel = get_hotel(user_to_delete)
-        if hOtel == hotel:
+        
+        if user_to_delete_hotel == hotel:
             user_to_delete.delete()
+
+        # if user_to_delete.role == 'Manager':
+        #     Manager.objects.filter(user=user_to_delete,hotel=hotel).delete()
+        # elif user_to_delete.role == 'Receptionist':
+        #     Receptionist.objects.filter(user=user_to_delete,hotel=hotel).delete()
+        # elif user_to_delete.role == 'Staff':
+        #     Staff.objects.filter(user=user_to_delete,hotel=hotel).delete()
+        # else:
+        #     return Response({
+        #         'status': 'error',
+        #         'message': 'User role not recognized.'
+        #     }, status=status.HTTP_400_BAD_REQUEST)
+
+      
         else:
             return Response({
                 'status': 'error',
@@ -355,6 +363,10 @@ class ChangeShiftView(APIView):
                 {"error": "shift is required in the request body."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        if shift not in ['Morning', 'Evening', 'Night']:
+            return Response(
+                {"error": "Invalid shift. Choose from Morning, Evening, Night."},
+                status=status.HTTP_400_BAD_REQUEST)
 
         try:
            user_hotel = get_hotel(request.user)

@@ -24,13 +24,13 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(Manager)
 class ManagerAdmin(admin.ModelAdmin):
-    list_display = ('id','user', 'hotel')
+    list_display = ('id','user', 'hotel', 'shift')
     search_fields = ('user__email', 'user__user_name', 'hotel__name')
     list_filter = ('hotel',)
 
 @admin.register(Receptionist)
 class ReceptionistAdmin(admin.ModelAdmin):
-    list_display = ('id','user', 'hotel')
+    list_display = ('id','user', 'hotel', 'shift')
     search_fields = ('user__email', 'user__user_name', 'hotel__name')
     list_filter = ('hotel',)
 
