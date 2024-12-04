@@ -16,6 +16,8 @@ from .permissions import IsManagerOrAdmin,IsNonAdmin
 from hoteldetails.utils import get_hotel
 from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
 from django.db.models import Q
+from dateutil.parser import parse as parse_date
+
 
 class AttendanceListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -139,6 +141,7 @@ class CheckAttendanceView(APIView):
 class StaffAttendanceView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AttendanceSerializer
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user
@@ -318,19 +321,42 @@ class ApplyLeaveView(APIView):
         if not from_date or not to_date or not leave_type or not reason:
             return Response({
                 'status': 'error',
-                'message': 'From date, to date,description and leave type are required.'
+                'message': 'from_date, to_date, description and leave_type are required.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if from_date < timezone.now().date().isoformat():
+        try:
+            from_date_obj = parse_date(from_date).date()
+            to_date_obj = parse_date(to_date).date()
+
+        except ValueError:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid date format. Please provide ISO format dates.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if from_date_obj < timezone.now().date():
             return Response({
                 'status': 'error',
                 'message': 'From date cannot be in the past.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if from_date > to_date:
+        if from_date_obj > to_date_obj:
             return Response({
                 'status': 'error',
                 'message': 'From date cannot be greater than to date.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        overlapping_leave = Leave.objects.filter(
+            user= user,
+            from_date__lte = to_date_obj,
+            to_date__gte = from_date_obj
+
+        )
+
+        if overlapping_leave.exists():
+            return Response({
+                'status':'error',
+                'message':'user already have a leave applied for this date rannge'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:

@@ -9,11 +9,11 @@ def get_shift():
         timezone = pytz.timezone('Asia/Kolkata')  # Replace with your timezone if needed
         current_time = datetime.now(timezone).time()
 
-        if current_time >= datetime.strptime('00:00', '%H:%M').time() and \
-           current_time < datetime.strptime('08:00', '%H:%M').time():
+        if current_time >= datetime.strptime('06:00', '%H:%M').time() and \
+           current_time < datetime.strptime('14:00', '%H:%M').time():
             return 'Morning'
-        elif current_time >= datetime.strptime('08:00', '%H:%M').time() and \
-             current_time < datetime.strptime('16:00', '%H:%M').time():
+        elif current_time >= datetime.strptime('14:00', '%H:%M').time() and \
+             current_time < datetime.strptime('22:00', '%H:%M').time():
             return 'Evening'
         else:
             return 'Night'

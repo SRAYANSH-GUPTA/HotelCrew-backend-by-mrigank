@@ -196,7 +196,7 @@ class CheckoutCustomerView(APIView):
         # Recalculate price
         customer.price = customer.room.price * stay_duration
 
-        customer.checkout_time = current_time
+        customer.check_out_time = current_time
         customer.checked_out = True
 
         customer.room.count += 1
@@ -343,7 +343,7 @@ class ExcelSheetView(APIView):
                         role=role,
                         salary=row['Salary'],
                         upi_id=row['Upi_id'],
-                        hotel=hotel
+                       
                     )
                     user_data.append(user)
 
