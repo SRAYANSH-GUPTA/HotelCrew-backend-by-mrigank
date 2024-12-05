@@ -51,6 +51,28 @@ class StaffListView(ListAPIView):
         serializer = StaffListSerializer(non_admin_users, many=True)
         return Response({'status': 'success','total_departments': total_departments,'staff_per_department': staff_per_department,'staff_list': serializer.data}, status=200)
     
+class TotalDepartmentsView(APIView):
+    permission_classes = [IsManagerOrAdmin]
+
+    def get(self, request):
+        user = request.user
+        try:
+            user_hotel= get_hotel(user)
+            if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {'message': 'No hotel is associated with you!.'},
+                status=status.HTTP_200_OK
+            )
+        
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        department_count = Counter(staff.department for staff in staffs)
+        total_departments = len(department_count)
+        staff_per_department = dict(department_count)
+        
+        return Response({'status': 'success','total_departments': total_departments,'staff_per_department': staff_per_department}, status=200)
+
 class CreateCrewView(APIView):
     permission_classes = [IsManagerOrAdmin]
 
@@ -127,8 +149,8 @@ class UpdateCrewView(APIView):
         except User.DoesNotExist:
             return Response({'status': 'error', 'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if user.role == 'Admin' or user.role == 'Manager':
-            return Response({'status': 'error', 'message': 'You cannot update an Admin or Manager.'}, status=status.HTTP_403_FORBIDDEN)
+        if user.role == 'Admin' :
+            return Response({'status': 'error', 'message': 'You cannot update an Admin.'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             user_hotel = get_hotel(user)
