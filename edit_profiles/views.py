@@ -513,3 +513,43 @@ class MassCreateStaffView(APIView):
 
         except Exception as e:
             return Response({'status': 'error', 'message': f"Error processing Excel file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+class DeleteStaffByDepartmentView(APIView):
+    permission_classes = [IsManagerOrAdmin]
+
+    def delete(self, request):
+        user = request.user
+        department = request.data.get('department', '').capitalize()
+
+        if not department:
+            return Response(
+                {'status': 'error', 'message': 'Department is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user_hotel = get_hotel(user)
+            if not user_hotel:
+                return Response(
+                    {'status': 'error', 'message': 'User is not associated with any hotel.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            return Response(
+                {'status': 'error', 'message': f'Error retrieving hotel: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        with transaction.atomic():
+            staff_to_delete = Staff.objects.filter(hotel=user_hotel, department=department)
+            user_ids_to_delete = staff_to_delete.values_list('user_id', flat=True)
+
+            deleted_users_count, _ = User.objects.filter(id__in=user_ids_to_delete).delete()
+
+        return Response(
+            {
+                'status': 'success',
+                'message': f'All staff from the {department} department were deleted successfully.',
+            },
+            status=status.HTTP_200_OK
+        )
