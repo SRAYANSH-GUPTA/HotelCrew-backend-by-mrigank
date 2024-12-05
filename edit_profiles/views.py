@@ -18,6 +18,10 @@ from hoteldetails.serializers import HotelSerializer
 from django.db import transaction
 from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer,ProfileViewSerializer
 import re
+from rest_framework.pagination import PageNumberPagination
+
+class ListPagination(PageNumberPagination):
+    page_size = 10
 
 class StaffListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -553,3 +557,31 @@ class DeleteStaffByDepartmentView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+class StaffPaginationListView(ListAPIView):
+     permission_classes = [IsManagerOrAdmin]
+     pagination_class = ListPagination
+     def get(self, request):
+        user = request.user
+        try:
+            user_hotel= get_hotel(user)
+            if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {'message': 'No hotel is associated with you!.'},
+                status=status.HTTP_200_OK
+            )
+        
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
+        
+        non_admin_users = list(chain(
+            (manager.user for manager in managers),
+            (staff.user for staff in staffs),
+            (receptionist.user for receptionist in receptionists)
+        ))
+        paginated_users = self.paginate_queryset(non_admin_users)
+        serializer = StaffListSerializer(paginated_users, many=True)
+        return self.get_paginated_response({'status': 'success', 'staff_list': serializer.data})
