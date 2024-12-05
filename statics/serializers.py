@@ -15,7 +15,7 @@ class DailyStaffPerformanceSerializer(serializers.Serializer):
     date = serializers.DateField()
     performance_percentage = serializers.FloatField()
 
-class WeeklyStaffPerformanceSerializer(serializers.Serializer):
+class CurrentWeeklyStaffPerformanceSerializer(serializers.Serializer):
     week_range = serializers.CharField()
     daily_stats = DailyStaffPerformanceSerializer(many=True)
 

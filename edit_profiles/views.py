@@ -127,8 +127,8 @@ class UpdateCrewView(APIView):
         except User.DoesNotExist:
             return Response({'status': 'error', 'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if user.role == 'Admin' or user.role == 'Manager':
-            return Response({'status': 'error', 'message': 'You cannot update an Admin or Manager.'}, status=status.HTTP_403_FORBIDDEN)
+        if user.role == 'Admin' :
+            return Response({'status': 'error', 'message': 'You cannot update an Admin.'}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             user_hotel = get_hotel(user)
