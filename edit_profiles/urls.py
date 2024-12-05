@@ -14,4 +14,5 @@ urlpatterns = [
     path('schedule_change/<int:user_id>/',ChangeShiftView.as_view(),name='schedule-change'),
     path('department_list/',TotalDepartmentsView.as_view(),name='department-list'),
     path('pagination/staff_list/',StaffPaginationListView.as_view(),name='staff-list-pagination'),
+    path('delete-dep/',DeleteStaffByDepartmentView.as_view(),name='department-delete'),
 ]
