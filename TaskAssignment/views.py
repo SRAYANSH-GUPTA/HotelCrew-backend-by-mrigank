@@ -116,8 +116,8 @@ class StaffAllTaskOfDayListView(APIView):
         user = Staff.objects.get(user=user)
         today = now().date()
         totaltask = Task.objects.filter(assigned_to=user, created_at__date=today).count()
-        taskcompleted = Task.objects.filter(assigned_to=user, completed_at__date=today).count()
-        taskpending = Task.objects.filter(assigned_to=user, completed_at=None,updated_at__date=today).count()
+        taskcompleted = Task.objects.filter(assigned_to=user, created_at__date=today, completed_at__date=today).count()
+        taskpending = Task.objects.filter(assigned_to=user, created_at__date=today, completed_at=None).count()
         
         tasks = Task.objects.filter(assigned_to=user, created_at__date=today).order_by('-created_at')
         serializer = TaskSerializer(tasks, many=True)
