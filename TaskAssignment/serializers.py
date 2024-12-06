@@ -97,9 +97,9 @@ class AnnouncementCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Hotel information is required for announcement.")
 
         if department == 'All':
-            assigned_staff = Staff.objects.filter(hotel=hotel,shift=shift)
+            assigned_staff = Staff.objects.filter(hotel=hotel)
         elif department:
-            assigned_staff = Staff.objects.filter(department=department, hotel=hotel,shift=shift)
+            assigned_staff = Staff.objects.filter(department=department, hotel=hotel)
 
         if not assigned_staff.exists():
             raise serializers.ValidationError(

@@ -96,9 +96,30 @@ class AllTaskDayListView(APIView):
         today = now().date()
         totaltask = Task.objects.filter(hotel=hotel, created_at__date=today).count()
         taskcompleted = Task.objects.filter(hotel=hotel, completed_at__date=today).count()
-        taskpending = Task.objects.filter(hotel=hotel, completed_at=None).count()
+        taskpending = Task.objects.filter(hotel=hotel, completed_at=None,updated_at__date=today).count()
         
         tasks = Task.objects.filter(hotel=hotel, created_at__date=today).order_by('-created_at')
+        serializer = TaskSerializer(tasks, many=True)
+
+        return Response({
+            "totaltask": totaltask,
+            "taskcompleted": taskcompleted,
+            "taskpending": taskpending,
+            "tasks": serializer.data
+        })
+    
+class StaffAllTaskOfDayListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = self.request.user
+        user = Staff.objects.get(user=user)
+        today = now().date()
+        totaltask = Task.objects.filter(assigned_to=user, created_at__date=today).count()
+        taskcompleted = Task.objects.filter(assigned_to=user, completed_at__date=today).count()
+        taskpending = Task.objects.filter(assigned_to=user, completed_at=None,updated_at__date=today).count()
+        
+        tasks = Task.objects.filter(assigned_to=user, created_at__date=today).order_by('-created_at')
         serializer = TaskSerializer(tasks, many=True)
 
         return Response({
@@ -134,7 +155,7 @@ class TaskDeleteView(DestroyAPIView):
 
 
 class TaskStatusUpdateView(APIView):
-    permission_classes=[AllowAny]
+    permission_classes=[IsAuthenticated]
     throttle_classes = [UpdateTaskUserRateThrottle]
     def patch(self, request, pk=None):
         """
@@ -142,6 +163,8 @@ class TaskStatusUpdateView(APIView):
         """
         try:
             task = Task.objects.get(pk=pk)
+            if task.status == "Completed":
+                return Response({"error": "Task already completed"}, status=status.HTTP_400_BAD_REQUEST)
         except Task.DoesNotExist:
             return Response({"error": "Task not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -154,12 +177,14 @@ class TaskStatusUpdateView(APIView):
                 Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=True)
 
                 assigned_to = Staff.objects.get(id=task.assigned_to.id)
-                devicetoken = DeviceToken.objects.get(user=assigned_to.user)
-                send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Your task has been completed.")
+                if DeviceToken.objects.filter(user=assigned_to.user).exists():
+                    devicetoken = DeviceToken.objects.get(user=assigned_to.user)
+                    send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Your task has been completed.")
 
                 assigned_by = task.assigned_by
-                devicetoken = DeviceToken.objects.get(user=assigned_by)
-                send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Task has been completed by staff.")
+                if DeviceToken.objects.filter(user=assigned_by).exists():
+                    devicetoken = DeviceToken.objects.get(user=assigned_by)
+                    send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Task has been completed by staff.")
 
             task.status = status_data
             task.save()
@@ -191,7 +216,7 @@ class AnnouncementListCreateView(APIView):
         if user.role == 'Manager':
             user = Manager.objects.get(user=user)
             announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
-        elif user.role == 'receptionist':
+        elif user.role == 'Receptionist':
             user = Receptionist.objects.get(user=user)
             announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'Admin':

@@ -15,6 +15,10 @@ from .serializers import AttendanceListSerializer,LeaveSerializer,AttendanceSeri
 from .permissions import IsManagerOrAdmin,IsNonAdmin
 from hoteldetails.utils import get_hotel
 from TaskAssignment.permissions import IsAdminorManagerOrReceptionist
+from django.db.models import Q
+from dateutil.parser import parse as parse_date
+
+
 class AttendanceListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
 
@@ -61,10 +65,24 @@ class ChangeAttendanceView(APIView):
     permission_classes = [IsManagerOrAdmin]
     def post(self, request, user_id):
         try:
+
+            adminORmanager = request.user
+            hotel = get_hotel(adminORmanager)
+            if not hotel:
+               return Response({"error": "you do not have a Hotel"}, status=404)
+            
             user = User.objects.get(id=user_id)
             if user.role == 'Admin':
                 return Response({'error': 'Admins cannot have attendance records.'}, status=status.HTTP_400_BAD_REQUEST)
-
+            
+            userHotel = get_hotel(user)
+            if not userHotel:
+               return Response({"error": "staff Hotel not found"}, status=404)
+            
+            if userHotel != hotel:
+                return Response({'error': 'User not found in your hotel.'}, status=status.HTTP_404_NOT_FOUND)
+            
+            
             date_today = timezone.now().date()
             attendance, created = Attendance.objects.get_or_create(
                 user=user,
@@ -123,6 +141,7 @@ class CheckAttendanceView(APIView):
 class StaffAttendanceView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AttendanceSerializer
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user
@@ -162,7 +181,7 @@ class MonthlyAttendanceView(APIView):
 
         return Response(
             {
-                'user': user.username,
+                'user': user.user_name,
                 'month': today.strftime("%B %Y"),
                 'days_present': days_present,
                 'leaves':total_leave_days,
@@ -302,7 +321,42 @@ class ApplyLeaveView(APIView):
         if not from_date or not to_date or not leave_type or not reason:
             return Response({
                 'status': 'error',
-                'message': 'From date, to date,description and leave type are required.'
+                'message': 'from_date, to_date, description and leave_type are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            from_date_obj = parse_date(from_date).date()
+            to_date_obj = parse_date(to_date).date()
+
+        except ValueError:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid date format. Please provide ISO format dates.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if from_date_obj < timezone.now().date():
+            return Response({
+                'status': 'error',
+                'message': 'From date cannot be in the past.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if from_date_obj > to_date_obj:
+            return Response({
+                'status': 'error',
+                'message': 'From date cannot be greater than to date.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        overlapping_leave = Leave.objects.filter(
+            user= user,
+            from_date__lte = to_date_obj,
+            to_date__gte = from_date_obj
+
+        )
+
+        if overlapping_leave.exists():
+            return Response({
+                'status':'error',
+                'message':'user already have a leave applied for this date rannge'
             }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
@@ -369,6 +423,35 @@ class ApproveLeaveView(APIView):
     
     def patch(self, request, leave_id):
 
+        if not request.data.get('status'):
+            return Response({
+                'status': 'error',
+                'message': 'Status is required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if request.data.get('status') not in ['Approved', 'Rejected']:
+            return Response({
+                'status': 'error',
+                'message': 'Invalid status. Status must be either Approved or Rejected.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        hotel = get_hotel(request.user)
+        if not hotel:
+            return Response({
+                'status': 'error',
+                'message': 'Hotel not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        staff = Leave.objects.get(id=leave_id).user
+        hotel_staff = get_hotel(staff)
+
+        if hotel_staff != hotel:
+            return Response({
+                'status': 'error',
+                'message': 'Staff not found in your hotel.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+
         try:
             leave = Leave.objects.get(id=leave_id,status='Pending')
             leave.status = request.data.get('status')
@@ -389,6 +472,13 @@ class LeaveCountView(APIView):
     def get(self, request):
         date = request.query_params.get('date', timezone.now().date())
 
+        hotel = get_hotel(request.user)
+        if not hotel:
+            return Response({
+                'status': 'error',
+                'message': 'Hotel not found.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
         try:
             date = timezone.datetime.fromisoformat(str(date)).date()
         except ValueError:
@@ -396,8 +486,19 @@ class LeaveCountView(APIView):
                 'status': 'error',
                 'message': 'Invalid date format.'
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        users_in_hotel = User.objects.filter(
+            Q(manager_profile__hotel=hotel) |
+            Q(receptionist_profile__hotel=hotel) |
+            Q(staff_profile__hotel=hotel)
+        )
 
-        leave_count = Leave.LeaveCount(date)
+        leave_count = Leave.objects.filter(
+            user__in=users_in_hotel,
+            status='Approved',
+            from_date__lte=date,
+            to_date__gte=date
+        ).count()
 
         return Response({
             'status': 'success',

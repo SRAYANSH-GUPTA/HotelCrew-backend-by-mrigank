@@ -15,9 +15,13 @@ from hoteldetails.models import HotelDetails
 from hoteldetails.utils import get_hotel
 from django.core import serializers
 from hoteldetails.serializers import HotelSerializer
-
+from django.db import transaction
 from .serializers import StaffListSerializer,UserSerializer,HotelUpdateSerializer,ProfileUpdateSerializer,ScheduleListSerializer,ProfileViewSerializer
+import re
+from rest_framework.pagination import PageNumberPagination
 
+class ListPagination(PageNumberPagination):
+    page_size = 10
 
 class StaffListView(ListAPIView):
      permission_classes = [IsManagerOrAdmin]
@@ -51,6 +55,27 @@ class StaffListView(ListAPIView):
         serializer = StaffListSerializer(non_admin_users, many=True)
         return Response({'status': 'success','total_departments': total_departments,'staff_per_department': staff_per_department,'staff_list': serializer.data}, status=200)
     
+class TotalDepartmentsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        try:
+            user_hotel= get_hotel(user)
+            if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {'message': 'No hotel is associated with you!.'},
+                status=status.HTTP_200_OK
+            )
+        
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        department_count = Counter(staff.department for staff in staffs)
+        total_departments = len(department_count)
+        staff_per_department = dict(department_count)
+        
+        return Response({'status': 'success','total_departments': total_departments,'staff_per_department': staff_per_department}, status=200)
 
 class CreateCrewView(APIView):
     permission_classes = [IsManagerOrAdmin]
@@ -70,16 +95,19 @@ class CreateCrewView(APIView):
 
         data = request.data
         role = data.get('role', 'Staff').capitalize()
-        email, user_name = data.get('email'), data.get('user_name')
-        department = data.get('department')
-        salary = data.get('salary')
+        email= data.get('email')
+        user_name =data.get('user_name').strip()
+        department = data.get('department', 'Housekeeping').capitalize()
+        salary = data.get('salary', 0)
         upi_id = data.get('upi_id')
-        shift = data.get('shift')
+        shift = data.get('shift', 'Morning').capitalize()
         
 
         if not email:
             return Response({'status': 'error', 'message': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+        if not re.search(r'[a-zA-Z0-9]', user_name):
+            return Response({'status':'error','message':"Username must contain at least one letter or number and cannot be empty."}, status=status.HTTP_400_BAD_REQUEST)
+       
         valid_roles = dict(User.ROLE_CHOICES).keys()
         if role not in valid_roles:
             return Response({'status': 'error', 'message':'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
@@ -88,9 +116,9 @@ class CreateCrewView(APIView):
         try:
             user = User.objects.create_user(email=email, user_name=user_name, role=role, upi_id=upi_id, salary=salary)
             
-            if role.lower() == 'manager':
+            if role == 'Manager':
                 Manager.objects.create(user=user, hotel=user_hotel,shift=shift)
-            elif role.lower() == 'receptionist':
+            elif role == 'Receptionist':
                 Receptionist.objects.create(user=user, hotel=user_hotel,shift=shift)
             else:
                 Staff.objects.create(user=user, hotel=user_hotel, department=department,shift=shift)
@@ -100,12 +128,11 @@ class CreateCrewView(APIView):
 
         serializer = UserSerializer(user)
         return Response({'status': 'success', 'message': 'User created successfully.', 'user': serializer.data}, status=status.HTTP_201_CREATED)
-    
+
 class UpdateCrewView(APIView):
     permission_classes = [IsManagerOrAdminOrSelf]
         
     def get(self, request, user_id):
-        permission_classes=[IsManagerOrAdminOrSelf]
         if not request.user.is_authenticated:
             return Response({'status': 'error', 'message': 'User must be authenticated.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -117,7 +144,7 @@ class UpdateCrewView(APIView):
         serializer = UserSerializer(user)
         return Response({'status': 'success', 'user': serializer.data}, status=status.HTTP_200_OK)
 
-    def put(self, request, user_id):
+    def patch(self, request, user_id):
         if not request.user.is_authenticated:
             return Response({'status': 'error', 'message': 'User must be authenticated.'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -126,11 +153,11 @@ class UpdateCrewView(APIView):
         except User.DoesNotExist:
             return Response({'status': 'error', 'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        if user.role == 'Admin' :
+            return Response({'status': 'error', 'message': 'You cannot update an Admin.'}, status=status.HTTP_403_FORBIDDEN)
+
         try:
-            if user.role == 'Admin' or user.role == 'Manager':
-                user_hotel = get_hotel(user)
-            else:
-                return Response({'status': 'error', 'message': 'You are not allowed to do this operation.'}, status=status.HTTP_403_FORBIDDEN)
+            user_hotel = get_hotel(user)
         except HotelDetails.DoesNotExist:
             return Response({'status': 'error', 'message': 'No hotel is associated with the authenticated user.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -141,7 +168,7 @@ class UpdateCrewView(APIView):
         department = data.get('department')
         salary = data.get('salary', user.salary)
         upi_id = data.get('upi_id', user.upi_id)
-        shift = data.get('shift', None)
+        shift = data.get('shift')
 
         if new_email != user.email:
             try:
@@ -159,21 +186,23 @@ class UpdateCrewView(APIView):
         if new_role not in valid_roles:
             return Response({'status': 'error', 'message': f'Invalid role. Choose from {", ".join(valid_roles)}.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        if new_role != user.role:
+        with transaction.atomic():
 
-            if user.role == 'Manager':
-                Manager.objects.filter(user=user).delete()
-            elif user.role == 'Receptionist':
-                Receptionist.objects.filter(user=user).delete()
-            elif user.role == 'Staff':
-                Staff.objects.filter(user=user).delete()
+            if new_role != user.role:
 
-            if new_role == 'Manager':
-                Manager.objects.create(user=user, hotel=user_hotel,shift=shift)
-            elif new_role == 'Receptionist':
-                Receptionist.objects.create(user=user, hotel=user_hotel,shift=shift)
-            elif new_role == 'Staff':
-                Staff.objects.create(user=user, hotel=user_hotel, department=department,shift=shift)
+                if user.role == 'Manager':
+                    Manager.objects.filter(user=user).delete()
+                elif user.role == 'Receptionist':
+                    Receptionist.objects.filter(user=user).delete()
+                elif user.role == 'Staff':
+                    Staff.objects.filter(user=user).delete()
+
+                if new_role == 'Manager':
+                    Manager.objects.create(user=user, hotel=user_hotel,shift=shift)
+                elif new_role == 'Receptionist':
+                    Receptionist.objects.create(user=user, hotel=user_hotel,shift=shift)
+                elif new_role == 'Staff':
+                    Staff.objects.create(user=user, hotel=user_hotel, department=department,shift=shift)
 
         user.user_name = user_name
         user.salary = salary
@@ -187,7 +216,7 @@ class UpdateCrewView(APIView):
 
         serializer = UserSerializer(user)
         return Response({'status': 'success', 'message': 'User updated successfully.', 'user': serializer.data}, status=status.HTTP_200_OK)
-    
+
 class DeleteCrewView(APIView):
     permission_classes = [IsManagerOrAdmin]
 
@@ -199,20 +228,50 @@ class DeleteCrewView(APIView):
             }, status=status.HTTP_403_FORBIDDEN)
 
         try:
-            if User.role == 'Admin':
-                return Response({'status': 'error', 'message': 'You cannot delete an Admin.'}, status=status.HTTP_403_FORBIDDEN)
             user_to_delete = User.objects.get(id=user_id)
+            if user_to_delete.role == 'Admin':
+                return Response({
+                    'status': 'error',
+                    'message': 'You cannot delete an Admin.'
+                }, status=status.HTTP_403_FORBIDDEN)
         except User.DoesNotExist:
             return Response({'status': 'error', 'message': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+    
+        hotel = get_hotel(request.user)
+        if not hotel:
+            return Response({
+                'status': 'error',
+                'message': 'No hotel is associated with the authenticated user.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_to_delete_hotel = get_hotel(user_to_delete)
+        if not user_to_delete_hotel:
+            return Response({
+                'status': 'error',
+                'message': 'No hotel is associated with the user to be deleted.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if user_to_delete_hotel == hotel:
+            user_to_delete.delete()
 
-        if user_to_delete.role == 'Manager':
-            Manager.objects.filter(user=user_to_delete).delete()
-        elif user_to_delete.role == 'Receptionist':
-            Receptionist.objects.filter(user=user_to_delete).delete()
-        elif user_to_delete.role == 'Staff':
-            Staff.objects.filter(user=user_to_delete).delete()
+        # if user_to_delete.role == 'Manager':
+        #     Manager.objects.filter(user=user_to_delete,hotel=hotel).delete()
+        # elif user_to_delete.role == 'Receptionist':
+        #     Receptionist.objects.filter(user=user_to_delete,hotel=hotel).delete()
+        # elif user_to_delete.role == 'Staff':
+        #     Staff.objects.filter(user=user_to_delete,hotel=hotel).delete()
+        # else:
+        #     return Response({
+        #         'status': 'error',
+        #         'message': 'User role not recognized.'
+        #     }, status=status.HTTP_400_BAD_REQUEST)
 
-        user_to_delete.delete()
+      
+        else:
+            return Response({
+                'status': 'error',
+                'message': 'User does not belong to this hotel.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             'status': 'success',
@@ -220,11 +279,13 @@ class DeleteCrewView(APIView):
         }, status=status.HTTP_204_NO_CONTENT)
         
 class GetHotelDetailsView(APIView):
-    permission_classes = [IsAdmin]
+    permission_classes = [IsManagerOrAdmin]
 
     def get(self, request):
         try:
-            hotel_details = HotelDetails.objects.get(user=request.user)
+            hotel_details = get_hotel(request.user)
+            if not hotel_details:
+                raise serializers.ValidationError("Hotel information is required.")
         except HotelDetails.DoesNotExist:
             return Response({
                 'status': 'error',
@@ -267,7 +328,6 @@ class UpdateHotelDetailsView(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-
 class UpdateUserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UpdateProfileUserRateThrottle]
@@ -331,6 +391,10 @@ class ChangeShiftView(APIView):
                 {"error": "shift is required in the request body."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        if shift not in ['Morning', 'Evening', 'Night']:
+            return Response(
+                {"error": "Invalid shift. Choose from Morning, Evening, Night."},
+                status=status.HTTP_400_BAD_REQUEST)
 
         try:
            user_hotel = get_hotel(request.user)
@@ -344,10 +408,13 @@ class ChangeShiftView(APIView):
             )
 
         user_instance = None
-        if Manager.objects.filter(user_id=user_id, hotel=user_hotel).exists():
-            user_instance = Manager.objects.get(user_id=user_id, hotel=user_hotel)
-        elif Staff.objects.filter(user_id=user_id, hotel=user_hotel).exists():
+
+        if Staff.objects.filter(user_id=user_id, hotel=user_hotel).exists():
             user_instance = Staff.objects.get(user_id=user_id, hotel=user_hotel)
+
+        elif Manager.objects.filter(user_id=user_id, hotel=user_hotel).exists():
+            user_instance = Manager.objects.get(user_id=user_id, hotel=user_hotel)
+
         elif Receptionist.objects.filter(user_id=user_id, hotel=user_hotel).exists():
             user_instance = Receptionist.objects.get(user_id=user_id, hotel=user_hotel)
 
@@ -452,3 +519,71 @@ class MassCreateStaffView(APIView):
 
         except Exception as e:
             return Response({'status': 'error', 'message': f"Error processing Excel file: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+class DeleteStaffByDepartmentView(APIView):
+    permission_classes = [IsManagerOrAdmin]
+
+    def delete(self, request):
+        user = request.user
+        department = request.data.get('department', '').capitalize()
+
+        if not department:
+            return Response(
+                {'status': 'error', 'message': 'Department is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user_hotel = get_hotel(user)
+            if not user_hotel:
+                return Response(
+                    {'status': 'error', 'message': 'User is not associated with any hotel.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            return Response(
+                {'status': 'error', 'message': f'Error retrieving hotel: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        with transaction.atomic():
+            staff_to_delete = Staff.objects.filter(hotel=user_hotel, department=department)
+            user_ids_to_delete = staff_to_delete.values_list('user_id', flat=True)
+
+            deleted_users_count, _ = User.objects.filter(id__in=user_ids_to_delete).delete()
+
+        return Response(
+            {
+                'status': 'success',
+                'message': f'All staff from the {department} department were deleted successfully.',
+            },
+            status=status.HTTP_200_OK
+        )
+
+class StaffPaginationListView(ListAPIView):
+     permission_classes = [IsManagerOrAdmin]
+     pagination_class = ListPagination
+     def get(self, request):
+        user = request.user
+        try:
+            user_hotel= get_hotel(user)
+            if not user_hotel:
+                raise serializers.ValidationError("Hotel information is required.")
+        except HotelDetails.DoesNotExist:
+            return Response(
+                {'message': 'No hotel is associated with you!.'},
+                status=status.HTTP_200_OK
+            )
+        
+        managers=Manager.objects.filter(hotel=user_hotel)
+        staffs=Staff.objects.filter(hotel=user_hotel)
+        receptionists=Receptionist.objects.filter(hotel=user_hotel)
+        
+        non_admin_users = list(chain(
+            (manager.user for manager in managers),
+            (staff.user for staff in staffs),
+            (receptionist.user for receptionist in receptionists)
+        ))
+        paginated_users = self.paginate_queryset(non_admin_users)
+        serializer = StaffListSerializer(paginated_users, many=True)
+        return self.get_paginated_response({'status': 'success', 'staff_list': serializer.data})
