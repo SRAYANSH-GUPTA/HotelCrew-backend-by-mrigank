@@ -59,7 +59,7 @@ class User(AbstractUser):
     user_profile = models.ImageField(
         storage=ProfileImageStorage(),
         upload_to='',
-        default='14-cd-campogalliano-web-1565969801.jpg',
+        default='profile_FMNU1Fe.jpg',
         blank=True,
         null=True
     )
