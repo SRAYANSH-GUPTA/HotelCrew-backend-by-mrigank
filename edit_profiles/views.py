@@ -56,7 +56,7 @@ class StaffListView(ListAPIView):
         return Response({'status': 'success','total_departments': total_departments,'staff_per_department': staff_per_department,'staff_list': serializer.data}, status=200)
     
 class TotalDepartmentsView(APIView):
-    permission_classes = [IsManagerOrAdmin]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
@@ -279,7 +279,7 @@ class DeleteCrewView(APIView):
         }, status=status.HTTP_204_NO_CONTENT)
         
 class GetHotelDetailsView(APIView):
-    permission_classes = [IsAdmin]
+    permission_classes = [IsManagerOrAdmin]
 
     def get(self, request):
         try:
