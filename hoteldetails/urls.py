@@ -9,4 +9,5 @@ urlpatterns = [
     path('all-customers/',CurrentCustomersView.as_view(),name='customer-list'),
     path('all-rooms/', DailyRoomsOccupiedView.as_view(), name='room-list'),
     path('excel/', ExcelSheetView.as_view(), name='excel'),
+    path('room/details/', RoomDetailsView.as_view(), name='room-type'),
 ]

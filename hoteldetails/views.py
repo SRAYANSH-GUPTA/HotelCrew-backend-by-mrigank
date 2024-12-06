@@ -379,4 +379,25 @@ class ExcelSheetView(APIView):
                         'status': 'error',
                         'message': f"Error processing Excel file: {str(e)}"
                 }, status=status.HTTP_400_BAD_REQUEST)
-                
+
+
+class RoomDetailsView(APIView):
+    permission_classes = [IsNonStaff]
+    
+    def get(self, request):
+        try:
+              hotel = get_hotel(request.user)
+              if not hotel:
+                  return Response({
+                      'status': 'error',
+                      'message': 'No hotel associated .'
+                  }, status=status.HTTP_400_BAD_REQUEST)
+        except HotelDetails.DoesNotExist:
+            return Response({"error": "No hotel associated with the current user."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        room_types = RoomType.objects.filter(hotel=hotel)
+        serializer = RoomTypeSerializer(room_types, many=True)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)               
