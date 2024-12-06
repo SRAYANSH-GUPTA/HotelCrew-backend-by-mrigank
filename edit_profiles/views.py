@@ -283,7 +283,9 @@ class GetHotelDetailsView(APIView):
 
     def get(self, request):
         try:
-            hotel_details = HotelDetails.objects.get(user=request.user)
+            hotel_details = get_hotel(request.user)
+            if not hotel_details:
+                raise serializers.ValidationError("Hotel information is required.")
         except HotelDetails.DoesNotExist:
             return Response({
                 'status': 'error',
