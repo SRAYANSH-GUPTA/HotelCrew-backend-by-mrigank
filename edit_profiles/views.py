@@ -279,7 +279,7 @@ class DeleteCrewView(APIView):
         }, status=status.HTTP_204_NO_CONTENT)
         
 class GetHotelDetailsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsManagerOrAdmin]
 
     def get(self, request):
         try:
