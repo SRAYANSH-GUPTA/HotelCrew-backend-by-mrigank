@@ -216,7 +216,7 @@ class AnnouncementListCreateView(APIView):
         if user.role == 'Manager':
             user = Manager.objects.get(user=user)
             announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
-        elif user.role == 'receptionist':
+        elif user.role == 'Receptionist':
             user = Receptionist.objects.get(user=user)
             announcements = Announcement.objects.filter(hotel=user.hotel).order_by('-created_at')
         elif user.role == 'Admin':
