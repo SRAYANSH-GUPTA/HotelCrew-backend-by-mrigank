@@ -176,6 +176,9 @@ class TaskStatusUpdateView(APIView):
                 task.completed_at = timezone.now()
                 Staff.objects.filter(id=task.assigned_to.id).update(is_avaliable=True)
 
+                task.status = status_data
+                task.save()
+
                 assigned_to = Staff.objects.get(id=task.assigned_to.id)
                 if DeviceToken.objects.filter(user=assigned_to.user).exists():
                     devicetoken = DeviceToken.objects.get(user=assigned_to.user)
@@ -186,8 +189,8 @@ class TaskStatusUpdateView(APIView):
                     devicetoken = DeviceToken.objects.get(user=assigned_by)
                     send_firebase_notification(fcm_token=devicetoken.fcm_token, title="Task Completed", body="Task has been completed by staff.")
 
-            task.status = status_data
-            task.save()
+            # task.status = status_data
+            # task.save()
             return Response({
                 "message": "Task status updated successfully",
                 "status": task.status
